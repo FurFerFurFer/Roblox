@@ -18,8 +18,12 @@ Whenever the user explains a new project concept, game idea, or mechanic:
 2. Criticize the idea constructively, including player experience, technical risk, exploit risk, unclear rules, and scope.
 3. Ask the most important clarifying questions.
 4. Suggest a better solution when a simpler, clearer, more fun, or more scalable design exists.
+5. Stop and wait for the user's response before starting implementation or updating any planning files.
 
-If the idea is clear enough, update `bro.md` and `bro.luau` after the review. If important design choices are missing, ask questions before making large code changes.
+Do not update `bro.md` or `bro.luau` until the user explicitly allows the next
+step. If important design choices are missing or any clarifying questions remain
+unanswered, ask those questions and wait for the user's answers before starting
+the process.
 
 ## File Responsibilities
 

@@ -44,6 +44,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local MarketplaceService = game:GetService("MarketplaceService")
 
 local PLACE_IDS = {
+	Home        = 0,
 	Arena       = 0,
 	OneVOne    = 0,
 	Group      = 0,
@@ -79,9 +80,19 @@ local TowerLevelAreas = {
 	Community = "Community",
 }
 
+local LobbyTowerAreas = {
+	Entrance = "TowerAreaEntrance",
+	Elevator = "LobbyTowerElevator",
+	LevelGate = "LobbyTowerLevelGate",
+	PlayButton = "TowerLevelPlayButton",
+	ReturnToLobbyBase = "ReturnToLobbyBase",
+}
+
 local HomeServerAreas = {
+	LobbyBase = "LobbyBase",
 	Lobby = "Lobby",
 	Playground = "Playground",
+	TowerArea = "TowerArea",
 }
 
 local GROUP_STAGE_LOCATIONS = {
@@ -147,6 +158,12 @@ local groupStageJoinRemoteConnected = false
 local groupStagePrivacyRemoteConnected = false
 local groupStageSpectateRemoteConnected = false
 
+local TOWER_LEVEL_PLAY_REMOTE = "TowerLevelPlayRequested"
+local LOBBY_TOWER_REMOTE_EVENTS = {
+	TOWER_LEVEL_PLAY_REMOTE,
+	"LobbyTowerGateStatesUpdated",
+}
+
 local ARENA_JOIN_REQUEST_REMOTE = "ArenaJoinRequested"
 local ARENA_ANSWER_REMOTE = "ArenaAnswerSelected"
 local ARENA_EXIT_REMOTE = "ArenaExitRequested"
@@ -173,6 +190,7 @@ local ARENA_ACTIVITY_REMOTE_EVENTS = {
 local arenaJoinRemoteConnected = false
 local arenaAnswerRemoteConnected = false
 local arenaExitRemoteConnected = false
+local towerLevelPlayRemoteConnected = false
 
 local createGroupStage
 local joinGroupStage
@@ -189,6 +207,8 @@ local clearPlayerArenaPresence
 local awardExperience
 local notifyTowerAccessDenied
 local notifyUpLevelTestReady
+local handleTowerLevelPlayRequested
+local canUsePortalNow
 
 local LobbyPortalRoutes = {
 	Arena = {
@@ -211,7 +231,7 @@ local LobbyPortalRoutes = {
 		placeId = PLACE_IDS.Dungeon,
 	},
 	Tower = {
-		kind = "TowerCurrentLevel",
+		kind = "LobbyTowerEntrance",
 	},
 }
 
@@ -239,6 +259,24 @@ local TowerLevelRequirements = {
 		upLevelTestPlaceId = 0,
 		nextLevel = nil,
 		nextLevelRequiredXP = nil,
+	},
+}
+
+local LobbyTowerLevelGates = {
+	[1] = {
+		gateName = "LobbyTowerGate_Level1",
+		elevatorStopName = "LobbyTowerElevatorStop_Level1",
+		lockedBarrierName = "LobbyTowerLockedBarrier_Level1",
+	},
+	[2] = {
+		gateName = "LobbyTowerGate_Level2",
+		elevatorStopName = "LobbyTowerElevatorStop_Level2",
+		lockedBarrierName = "LobbyTowerLockedBarrier_Level2",
+	},
+	[3] = {
+		gateName = "LobbyTowerGate_Level3",
+		elevatorStopName = "LobbyTowerElevatorStop_Level3",
+		lockedBarrierName = "LobbyTowerLockedBarrier_Level3",
 	},
 }
 
@@ -2152,37 +2190,112 @@ end
 
 
 -- ============================================================
--- [ ROUTE LOBBY TOWER PORTAL ]
--- Sends the player from the home lobby to their current Tower level.
+-- [ ENSURE LOBBY TOWER REMOTES ]
+-- Creates the small remotes used by the visible lobby Tower.
 -- ============================================================
 
-local function routeLobbyTowerPortal(player)
-	local currentTowerLevel = getHighestUnlockedTowerLevel(player)
-	local allowed, reason, requiredXP, currentXP, unlockedLevel = canEnterTowerLevel(player, currentTowerLevel)
-
-	if not allowed then
-		if reason == "NotEnoughXP" then
-			firePlayerRemoteEvent(player, "TowerAccessDenied", {
-				towerLevel = currentTowerLevel,
-				requiredXP = requiredXP,
-				currentXP = currentXP,
-			})
-		elseif reason == "UpLevelTestRequired" then
-			notifyUpLevelTestReady(player, currentTowerLevel, requiredXP, currentXP)
-		end
-		return false, reason, requiredXP, currentXP, unlockedLevel
+local function ensureLobbyTowerRemotes()
+	for _, eventName in ipairs(LOBBY_TOWER_REMOTE_EVENTS) do
+		getRemoteEvent(eventName, true)
 	end
 
-	local config = TowerLevelRequirements[currentTowerLevel]
-	return teleportPlayerToPlace(player, config.placeId, {
-		destination = "TowerLevel",
-		source = "LobbyTowerPortal",
-		towerLevel = currentTowerLevel,
-		currentTowerLevel = currentTowerLevel,
-		highestUnlockedTowerLevel = unlockedLevel,
-		requiredXP = requiredXP,
-		currentXP = currentXP,
+	if not towerLevelPlayRemoteConnected and handleTowerLevelPlayRequested then
+		local playEvent = getRemoteEvent(TOWER_LEVEL_PLAY_REMOTE, true)
+		if playEvent then
+			playEvent.OnServerEvent:Connect(handleTowerLevelPlayRequested)
+			towerLevelPlayRemoteConnected = true
+		end
+	end
+end
+
+
+-- ============================================================
+-- [ GET LOBBY TOWER LEVEL GATE CONFIG ]
+-- Returns the gate, elevator stop, and lock object names for one Tower level.
+-- ============================================================
+
+local function getLobbyTowerLevelGateConfig(towerLevel)
+	local level = math.floor(tonumber(towerLevel) or DEFAULT_UNLOCKED_TOWER_LEVEL)
+	local config = LobbyTowerLevelGates[level]
+	if config then
+		return config
+	end
+
+	return {
+		gateName = "LobbyTowerGate_Level" .. tostring(level),
+		elevatorStopName = "LobbyTowerElevatorStop_Level" .. tostring(level),
+		lockedBarrierName = "LobbyTowerLockedBarrier_Level" .. tostring(level),
+	}
+end
+
+
+-- ============================================================
+-- [ GET LOBBY TOWER GATE STATES ]
+-- Builds per-player unlock state for Tower gates and Play button choices.
+-- ============================================================
+
+local function getLobbyTowerGateStates(player)
+	local currentXP = getPlayerExperience(player)
+	local highestUnlocked = getHighestUnlockedTowerLevel(player)
+	local gateStates = {}
+
+	for towerLevel, requirement in ipairs(TowerLevelRequirements) do
+		local gateConfig = getLobbyTowerLevelGateConfig(towerLevel)
+		local allowed, reason, requiredXP = canEnterTowerLevel(player, towerLevel)
+		local status = reason
+
+		if allowed then
+			status = "Unlocked"
+		elseif currentXP < requirement.requiredXP then
+			status = "LockedByXP"
+		elseif towerLevel > highestUnlocked + 1 then
+			status = "LockedByPreviousLevel"
+		elseif reason == "UpLevelTestRequired" then
+			status = "UpLevelTestRequired"
+		end
+
+		table.insert(gateStates, {
+			towerLevel = towerLevel,
+			status = status,
+			canUseGate = allowed,
+			canUsePlayButton = allowed,
+			canExploreFloor = true,
+			requiredXP = requiredXP,
+			currentXP = currentXP,
+			gateName = gateConfig.gateName,
+			elevatorStopName = gateConfig.elevatorStopName,
+			lockedBarrierName = gateConfig.lockedBarrierName,
+		})
+	end
+
+	return gateStates
+end
+
+
+-- ============================================================
+-- [ NOTIFY LOBBY TOWER GATE STATES UPDATED ]
+-- Tells the client which visible Tower gates and Play choices the player can use.
+-- ============================================================
+
+local function notifyLobbyTowerGateStatesUpdated(player)
+	ensureLobbyTowerRemotes()
+
+	firePlayerRemoteEvent(player, "LobbyTowerGateStatesUpdated", {
+		highestUnlockedTowerLevel = getHighestUnlockedTowerLevel(player),
+		currentXP = getPlayerExperience(player),
+		gateStates = getLobbyTowerGateStates(player),
 	})
+end
+
+
+-- ============================================================
+-- [ ROUTE LOBBY TOWER ENTRANCE ]
+-- Refreshes Tower gate state when a player opens or enters the Tower area.
+-- ============================================================
+
+local function routeLobbyTowerEntrance(player)
+	notifyLobbyTowerGateStatesUpdated(player)
+	return true, "LobbyTowerGateStatesUpdated"
 end
 
 
@@ -2215,8 +2328,8 @@ local function routeLobbyPortal(player, portalName)
 		})
 	end
 
-	if route.kind == "TowerCurrentLevel" then
-		return routeLobbyTowerPortal(player)
+	if route.kind == "LobbyTowerEntrance" then
+		return routeLobbyTowerEntrance(player)
 	end
 
 	return false, "UnknownRouteKind"
@@ -2238,11 +2351,13 @@ end
 
 
 -- ============================================================
--- [ ROUTE TOWER LEVEL PORTAL ]
--- Checks unlock state, then teleports the player to a Tower level.
+-- [ ROUTE TOWER LEVEL ENTRY ]
+-- Checks current/highest level, then sends the player to an unlocked Tower level.
 -- ============================================================
 
-local function routeTowerLevelPortal(player, towerLevel)
+local function routeTowerLevelEntry(player, towerLevel, source)
+	towerLevel = math.floor(tonumber(towerLevel) or DEFAULT_UNLOCKED_TOWER_LEVEL)
+
 	local allowed, reason, requiredXP, currentXP = canEnterTowerLevel(player, towerLevel)
 	if not allowed then
 		if reason == "NotEnoughXP" then
@@ -2250,15 +2365,78 @@ local function routeTowerLevelPortal(player, towerLevel)
 		elseif reason == "UpLevelTestRequired" then
 			notifyUpLevelTestReady(player, towerLevel, requiredXP, currentXP)
 		end
+		notifyLobbyTowerGateStatesUpdated(player)
 		return false, reason, requiredXP, currentXP
 	end
 
 	local config = TowerLevelRequirements[towerLevel]
 	return teleportPlayerToPlace(player, config.placeId, {
 		destination = "TowerLevel",
+		source = source or LobbyTowerAreas.LevelGate,
 		towerLevel = towerLevel,
+		currentTowerLevel = towerLevel,
+		highestUnlockedTowerLevel = getHighestUnlockedTowerLevel(player),
 		requiredXP = requiredXP,
 		currentXP = currentXP,
+	})
+end
+
+
+-- ============================================================
+-- [ ROUTE TOWER LEVEL PORTAL ]
+-- Sends the player through a physical Tower gate in the Tower area.
+-- ============================================================
+
+local function routeTowerLevelPortal(player, towerLevel)
+	return routeTowerLevelEntry(player, towerLevel, LobbyTowerAreas.LevelGate)
+end
+
+
+-- ============================================================
+-- [ ROUTE TOWER LEVEL PLAY BUTTON ]
+-- Sends the player through the direct lobby Play button level picker.
+-- ============================================================
+
+local function routeTowerLevelPlayButton(player, towerLevel)
+	return routeTowerLevelEntry(player, towerLevel, LobbyTowerAreas.PlayButton)
+end
+
+
+-- ============================================================
+-- [ HANDLE TOWER LEVEL PLAY REQUESTED ]
+-- Receives direct Tower level choices from the lobby Play button UI.
+-- ============================================================
+
+handleTowerLevelPlayRequested = function(player, request)
+	local requestedLevel = request
+	if type(request) == "table" then
+		requestedLevel = request.towerLevel or request.level
+	end
+
+	local towerLevel = math.floor(tonumber(requestedLevel) or DEFAULT_UNLOCKED_TOWER_LEVEL)
+	if not canUsePortalNow(player, "TowerPlayButton:" .. tostring(towerLevel)) then
+		return false, "Debounced"
+	end
+
+	return routeTowerLevelPlayButton(player, towerLevel)
+end
+
+ensureLobbyTowerRemotes()
+
+
+-- ============================================================
+-- [ ROUTE TOWER LEVEL RETURN TO LOBBY BASE ]
+-- Sends a player from a Tower level server back to the home Lobby Base.
+-- ============================================================
+
+local function routeTowerLevelReturnToLobbyBase(player, sourceTowerLevel)
+	return teleportPlayerToPlace(player, PLACE_IDS.Home, {
+		destination = "HomeLobby",
+		source = TowerLevelAreas.SpawnTeleport,
+		destinationArea = HomeServerAreas.LobbyBase,
+		sourceTowerLevel = sourceTowerLevel,
+		highestUnlockedTowerLevel = getHighestUnlockedTowerLevel(player),
+		currentXP = getPlayerExperience(player),
 	})
 end
 
@@ -3634,7 +3812,7 @@ end
 local portalTouchDebounces = {}
 local PORTAL_TOUCH_DEBOUNCE_SECONDS = 1
 
-local function canUsePortalNow(player, portalKey)
+canUsePortalNow = function(player, portalKey)
 	local debounceKey = tostring(player.UserId) .. ":" .. tostring(portalKey)
 	local now = os.clock()
 
@@ -3669,23 +3847,33 @@ end
 
 
 -- ============================================================
--- [ BIND TOWER LEVEL PORTAL ]
--- Connects a Tower level portal Part to its XP-gated level.
+-- [ BIND LOBBY TOWER LEVEL GATE ]
+-- Connects a visible Tower Area gate to its XP/test-gated destination level.
 -- ============================================================
 
-local function bindTowerLevelPortal(portalPart, towerLevel)
-	portalPart.Touched:Connect(function(hit)
+local function bindLobbyTowerLevelGate(gatePart, towerLevel)
+	gatePart.Touched:Connect(function(hit)
 		local player = getPlayerFromPortalTouch(hit)
 		if not player then
 			return
 		end
 
-		if not canUsePortalNow(player, "Tower:" .. tostring(towerLevel)) then
+		if not canUsePortalNow(player, "LobbyTowerGate:" .. tostring(towerLevel)) then
 			return
 		end
 
 		routeTowerLevelPortal(player, towerLevel)
 	end)
+end
+
+
+-- ============================================================
+-- [ BIND TOWER LEVEL PORTAL ]
+-- Backward-compatible wrapper for older Tower gate bindings.
+-- ============================================================
+
+local function bindTowerLevelPortal(portalPart, towerLevel)
+	return bindLobbyTowerLevelGate(portalPart, towerLevel)
 end
 
 
@@ -3748,6 +3936,27 @@ local function bindTowerLevelTravelPortal(portalPart, destinationTowerLevel)
 		end
 
 		routeTowerLevelTravel(player, destinationTowerLevel)
+	end)
+end
+
+
+-- ============================================================
+-- [ BIND TOWER LEVEL RETURN TO LOBBY BASE PORTAL ]
+-- Connects a Tower level return portal back to the home Lobby Base.
+-- ============================================================
+
+local function bindTowerLevelReturnToLobbyBasePortal(portalPart, sourceTowerLevel)
+	portalPart.Touched:Connect(function(hit)
+		local player = getPlayerFromPortalTouch(hit)
+		if not player then
+			return
+		end
+
+		if not canUsePortalNow(player, "TowerReturnToLobbyBase:" .. tostring(sourceTowerLevel)) then
+			return
+		end
+
+		routeTowerLevelReturnToLobbyBase(player, sourceTowerLevel)
 	end)
 end
 
