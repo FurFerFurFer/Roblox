@@ -102,6 +102,10 @@ local DEFAULT_GROUP_STAGE_QUESTION_LEVEL = 1
 local DEFAULT_GROUP_STAGE_QUESTION_TOPIC = "Mixed Trivia"
 
 local ARENA_QUESTION_PROJECTION_SIZE = Vector3.new(96, 36, 1)
+local ARENA_INTERMISSION_SECONDS = 10
+local ARENA_QUESTION_SECONDS = 20
+local ARENA_MIN_SCORED_PLAYERS = 2
+local ARENA_LEADERBOARD_LIMIT = 5
 
 local UP_LEVEL_TEST_ENTRY_SOURCE = "UpLevelTestEntry"
 
@@ -143,15 +147,48 @@ local groupStageJoinRemoteConnected = false
 local groupStagePrivacyRemoteConnected = false
 local groupStageSpectateRemoteConnected = false
 
+local ARENA_JOIN_REQUEST_REMOTE = "ArenaJoinRequested"
+local ARENA_ANSWER_REMOTE = "ArenaAnswerSelected"
+local ARENA_EXIT_REMOTE = "ArenaExitRequested"
 local ARENA_ACTIVITY_REMOTE_EVENTS = {
+	"ArenaJoinPromptShown",
+	ARENA_JOIN_REQUEST_REMOTE,
+	"ArenaJoinDenied",
+	"ArenaJoinQueued",
+	"ArenaPlayerJoined",
+	"ArenaSpectateStarted",
+	"ArenaIntermissionStarted",
+	"ArenaCountdownTick",
 	"ArenaActivityStarted",
 	"ArenaQuestionProjected",
+	"ArenaQuestionResolved",
+	ARENA_ANSWER_REMOTE,
+	"ArenaAnswerResult",
+	ARENA_EXIT_REMOTE,
+	"ArenaPlayerLeft",
+	"ArenaLeaderboardUpdated",
+	"ArenaScoredSessionStarted",
 	"ArenaActivityEnded",
 }
+local arenaJoinRemoteConnected = false
+local arenaAnswerRemoteConnected = false
+local arenaExitRemoteConnected = false
+
 local createGroupStage
 local joinGroupStage
 local setGroupStagePrivacy
 local setGroupStageSpectating
+local requestArenaJoin
+local submitArenaAnswer
+local leaveArena
+local promptArenaJoin
+local handleArenaJoinRequested
+local handleArenaAnswerSelected
+local handleArenaExitRequested
+local clearPlayerArenaPresence
+local awardExperience
+local notifyTowerAccessDenied
+local notifyUpLevelTestReady
 
 local LobbyPortalRoutes = {
 	Arena = {
@@ -426,6 +463,48 @@ end
 
 
 -- ============================================================
+-- [ HANDLE ARENA JOIN REQUESTED ]
+-- Receives the client confirmation from the Arena gate prompt.
+-- ============================================================
+
+handleArenaJoinRequested = function(player, request)
+	if requestArenaJoin then
+		return requestArenaJoin(player, request)
+	end
+
+	return false, "ArenaJoinHandlerNotReady"
+end
+
+
+-- ============================================================
+-- [ HANDLE ARENA ANSWER SELECTED ]
+-- Receives a player's Arena answer from the client UI.
+-- ============================================================
+
+handleArenaAnswerSelected = function(player, request)
+	if submitArenaAnswer then
+		return submitArenaAnswer(player, request)
+	end
+
+	return false, "ArenaAnswerHandlerNotReady"
+end
+
+
+-- ============================================================
+-- [ HANDLE ARENA EXIT REQUESTED ]
+-- Receives an exit-button request from active, queued, or spectator state.
+-- ============================================================
+
+handleArenaExitRequested = function(player, request)
+	if leaveArena then
+		return leaveArena(player, request, "ExitRequested")
+	end
+
+	return false, "ArenaExitHandlerNotReady"
+end
+
+
+-- ============================================================
 -- [ ENSURE ARENA ACTIVITY REMOTES ]
 -- Creates server/client remotes for the level-wide Arena activity.
 -- ============================================================
@@ -433,6 +512,30 @@ end
 local function ensureArenaActivityRemotes()
 	for _, eventName in ipairs(ARENA_ACTIVITY_REMOTE_EVENTS) do
 		getRemoteEvent(eventName, true)
+	end
+
+	if not arenaJoinRemoteConnected then
+		local joinEvent = getRemoteEvent(ARENA_JOIN_REQUEST_REMOTE, true)
+		if joinEvent then
+			joinEvent.OnServerEvent:Connect(handleArenaJoinRequested)
+			arenaJoinRemoteConnected = true
+		end
+	end
+
+	if not arenaAnswerRemoteConnected then
+		local answerEvent = getRemoteEvent(ARENA_ANSWER_REMOTE, true)
+		if answerEvent then
+			answerEvent.OnServerEvent:Connect(handleArenaAnswerSelected)
+			arenaAnswerRemoteConnected = true
+		end
+	end
+
+	if not arenaExitRemoteConnected then
+		local exitEvent = getRemoteEvent(ARENA_EXIT_REMOTE, true)
+		if exitEvent then
+			exitEvent.OnServerEvent:Connect(handleArenaExitRequested)
+			arenaExitRemoteConnected = true
+		end
 	end
 end
 
@@ -458,6 +561,12 @@ local function getArenaActivityPayload(player, context, extra)
 		visualOptInRequired = false,
 		spectateRequired = false,
 		showVisuals = true,
+		joinDuringQuestionQueues = true,
+		soloPractice = false,
+		minScoredPlayers = ARENA_MIN_SCORED_PLAYERS,
+		intermissionSeconds = ARENA_INTERMISSION_SECONDS,
+		questionSeconds = ARENA_QUESTION_SECONDS,
+		leaderboardLimit = ARENA_LEADERBOARD_LIMIT,
 		startedByUserId = player and player.UserId or nil,
 		startedByName = player and player.Name or nil,
 		startedAt = os.time(),
@@ -474,12 +583,456 @@ end
 
 
 -- ============================================================
+-- [ ARENA QUESTION BANK ]
+-- Server-owned questions used by Arena until larger content banks exist.
+-- ============================================================
+
+local ArenaQuestionBank = {
+	{
+		questionId = "arena_math_001",
+		question = "What is 5 + 3?",
+		answers = { "6", "7", "8", "9" },
+		correct = "8",
+	},
+	{
+		questionId = "arena_science_001",
+		question = "Which planet is known as the Red Planet?",
+		answers = { "Venus", "Mars", "Jupiter", "Mercury" },
+		correct = "Mars",
+	},
+	{
+		questionId = "arena_geo_001",
+		question = "What is the capital of Thailand?",
+		answers = { "Bangkok", "Chiang Mai", "Phuket", "Pattaya" },
+		correct = "Bangkok",
+	},
+	{
+		questionId = "arena_math_002",
+		question = "How many degrees are in a right angle?",
+		answers = { "45", "60", "90", "180" },
+		correct = "90",
+	},
+}
+
+local arenaRandom = Random.new()
+local arenaSessions = {}
+
+
+-- ============================================================
+-- [ GET ARENA SESSION KEY ]
+-- Builds the per-Tower-level key for the shared Arena session.
+-- ============================================================
+
+function getArenaSessionKey(towerLevel)
+	local normalizedLevel = tonumber(towerLevel)
+	if normalizedLevel then
+		return "TowerLevel:" .. tostring(math.floor(normalizedLevel))
+	end
+
+	return "TowerLevel:Server"
+end
+
+
+-- ============================================================
+-- [ GET ARENA MAP COUNT ]
+-- Counts players in an Arena lookup table.
+-- ============================================================
+
+function getArenaMapCount(map)
+	local count = 0
+	for _ in pairs(map or {}) do
+		count = count + 1
+	end
+	return count
+end
+
+
+-- ============================================================
+-- [ GET ARENA PLAYER SUMMARY ]
+-- Copies player identity data for Arena remote payloads.
+-- ============================================================
+
+function getArenaPlayerSummary(map)
+	local players = {}
+	for userId, player in pairs(map or {}) do
+		table.insert(players, {
+			userId = userId,
+			name = player and player.Name or tostring(userId),
+		})
+	end
+
+	table.sort(players, function(left, right)
+		return left.name < right.name
+	end)
+
+	return players
+end
+
+
+-- ============================================================
+-- [ GET ARENA SESSION ]
+-- Finds or creates the shared Arena session for a Tower level.
+-- ============================================================
+
+function getArenaSession(towerLevel, context, createIfMissing)
+	local key = getArenaSessionKey(towerLevel)
+	local state = arenaSessions[key]
+
+	if not state and createIfMissing then
+		state = {
+			key = key,
+			towerLevel = towerLevel,
+			context = context or {},
+			status = "Idle",
+			sessionId = 0,
+			scoredSessionId = 0,
+			roundIndex = 0,
+			questionSequence = 0,
+			activePlayers = {},
+			queuedPlayers = {},
+			spectators = {},
+			scores = {},
+			scoreNames = {},
+			answeredThisQuestion = {},
+			running = false,
+			scoredSessionStarted = false,
+			scoringEnabled = false,
+		}
+		arenaSessions[key] = state
+	elseif state and context then
+		state.context = context
+		state.towerLevel = towerLevel or state.towerLevel
+	end
+
+	return state
+end
+
+
+-- ============================================================
+-- [ FIND ARENA SESSION FOR PLAYER ]
+-- Finds the Arena session where a player is active, queued, or spectating.
+-- ============================================================
+
+function findArenaSessionForPlayer(player, towerLevel)
+	local userId = player.UserId
+
+	if towerLevel then
+		local state = getArenaSession(towerLevel, nil, false)
+		if state and (state.activePlayers[userId] or state.queuedPlayers[userId] or state.spectators[userId]) then
+			return state
+		end
+	end
+
+	for _, state in pairs(arenaSessions) do
+		if state.activePlayers[userId] or state.queuedPlayers[userId] or state.spectators[userId] then
+			return state
+		end
+	end
+
+	return nil
+end
+
+
+-- ============================================================
+-- [ COPY ARENA ANSWERS ]
+-- Copies answer text so question-bank rows are not mutated by a round.
+-- ============================================================
+
+function copyArenaAnswers(questionData)
+	local answers = {}
+	for index, answer in ipairs(questionData.answers or {}) do
+		answers[index] = answer
+	end
+	return answers
+end
+
+
+-- ============================================================
+-- [ GET ARENA QUESTION FOR ROUND ]
+-- Picks a random Arena question, avoiding a direct repeat when possible.
+-- ============================================================
+
+function getArenaQuestionForRound(state)
+	local questionCount = #ArenaQuestionBank
+	if questionCount == 0 then
+		return nil
+	end
+
+	local questionIndex = 1
+	if questionCount > 1 then
+		repeat
+			questionIndex = arenaRandom:NextInteger(1, questionCount)
+		until questionIndex ~= state.lastQuestionBankIndex
+	end
+
+	state.lastQuestionBankIndex = questionIndex
+	local questionData = ArenaQuestionBank[questionIndex]
+	return {
+		questionId = questionData.questionId or ("arena_question_" .. tostring(questionIndex)),
+		question = questionData.question,
+		answers = copyArenaAnswers(questionData),
+		correct = questionData.correct,
+	}
+end
+
+
+-- ============================================================
+-- [ GET ARENA LEADERBOARD ]
+-- Builds the top session scores for the current Arena session.
+-- ============================================================
+
+function getArenaLeaderboard(state)
+	local rows = {}
+	local includedUserIds = {}
+
+	for userId, score in pairs(state.scores or {}) do
+		includedUserIds[userId] = true
+		table.insert(rows, {
+			userId = userId,
+			name = state.scoreNames[userId] or ("Player " .. tostring(userId)),
+			score = score,
+		})
+	end
+
+	for userId, player in pairs(state.activePlayers or {}) do
+		if not includedUserIds[userId] then
+			table.insert(rows, {
+				userId = userId,
+				name = player.Name,
+				score = 0,
+			})
+		end
+	end
+
+	table.sort(rows, function(left, right)
+		if left.score == right.score then
+			return left.name < right.name
+		end
+		return left.score > right.score
+	end)
+
+	local leaderboard = {}
+	for index = 1, math.min(ARENA_LEADERBOARD_LIMIT, #rows) do
+		leaderboard[index] = rows[index]
+	end
+	return leaderboard
+end
+
+
+-- ============================================================
+-- [ GET ARENA SESSION PAYLOAD ]
+-- Builds the shared remote payload for Arena state updates.
+-- ============================================================
+
+function getArenaSessionPayload(state, extra)
+	local activePlayerCount = getArenaMapCount(state.activePlayers)
+	local payload = getArenaActivityPayload(nil, state.context or {}, {
+		arenaSessionKey = state.key,
+		arenaSessionId = state.sessionId,
+		scoredSessionId = state.scoredSessionId,
+		status = state.status,
+		towerLevel = state.towerLevel,
+		activePlayerCount = activePlayerCount,
+		queuedPlayerCount = getArenaMapCount(state.queuedPlayers),
+		spectatorCount = getArenaMapCount(state.spectators),
+		activePlayers = getArenaPlayerSummary(state.activePlayers),
+		queuedPlayers = getArenaPlayerSummary(state.queuedPlayers),
+		scoredSessionStarted = state.scoredSessionStarted == true,
+		scoringEnabled = state.scoringEnabled == true,
+		soloPractice = activePlayerCount < ARENA_MIN_SCORED_PLAYERS,
+		leaderboard = getArenaLeaderboard(state),
+		roundIndex = state.roundIndex,
+		questionSequence = state.questionSequence,
+	})
+
+	if state.currentQuestion then
+		payload.questionId = state.currentQuestion.questionId
+		payload.question = state.currentQuestion.question
+		payload.answers = state.currentQuestion.answers
+	end
+
+	if extra then
+		for key, value in pairs(extra) do
+			payload[key] = value
+		end
+	end
+
+	return payload
+end
+
+
+-- ============================================================
+-- [ FIRE ARENA LEADERBOARD ]
+-- Broadcasts the current top-5 session leaderboard.
+-- ============================================================
+
+function fireArenaLeaderboard(state, reason)
+	fireAllClientsRemoteEvent("ArenaLeaderboardUpdated", getArenaSessionPayload(state, {
+		reason = reason or "LeaderboardUpdated",
+		leaderboard = getArenaLeaderboard(state),
+	}))
+end
+
+
+-- ============================================================
+-- [ GET ARENA ROOT PART ]
+-- Finds the character part used for Arena teleport/facing.
+-- ============================================================
+
+function getArenaRootPart(player)
+	local character = player.Character
+	if not character then
+		return nil
+	end
+
+	local root = character:FindFirstChild("HumanoidRootPart")
+	if root and root:IsA("BasePart") then
+		return root
+	end
+
+	return character:FindFirstChildWhichIsA("BasePart")
+end
+
+
+-- ============================================================
+-- [ GET ARENA PART ]
+-- Finds a named Arena world part from context or workspace fallback.
+-- ============================================================
+
+function getArenaPart(context, preferredName, fallbackName)
+	context = context or {}
+
+	local requestedName = context[preferredName]
+	if type(requestedName) == "string" and requestedName ~= "" then
+		local requestedPart = workspace:FindFirstChild(requestedName, true)
+		if requestedPart and requestedPart:IsA("BasePart") then
+			return requestedPart
+		end
+	end
+
+	local fallbackPart = workspace:FindFirstChild(fallbackName, true)
+	if fallbackPart and fallbackPart:IsA("BasePart") then
+		return fallbackPart
+	end
+
+	return nil
+end
+
+
+-- ============================================================
+-- [ GET ARENA GATE SIDE CFRAME ]
+-- Reads the spawn CFrame where active Arena players gather.
+-- ============================================================
+
+function getArenaGateSideCFrame(context)
+	context = context or {}
+	if typeof(context.gateSideCFrame) == "CFrame" then
+		return context.gateSideCFrame
+	end
+
+	local gatePart = getArenaPart(context, "gateSideSpawnName", "ArenaGateSideSpawn")
+		or getArenaPart(context, "gateSideName", "ArenaGateSide")
+	if gatePart then
+		return gatePart.CFrame + Vector3.new(0, 3, 0)
+	end
+
+	return nil
+end
+
+
+-- ============================================================
+-- [ GET ARENA SCREEN POSITION ]
+-- Finds the projection screen position for player facing direction.
+-- ============================================================
+
+function getArenaScreenPosition(context)
+	context = context or {}
+	if typeof(context.questionScreenCFrame) == "CFrame" then
+		return context.questionScreenCFrame.Position
+	end
+
+	local screenPart = getArenaPart(context, "questionScreenName", "ArenaQuestionScreen")
+		or getArenaPart(context, "projectionScreenName", "ArenaProjectionScreen")
+	if screenPart then
+		return screenPart.Position
+	end
+
+	return nil
+end
+
+
+-- ============================================================
+-- [ MOVE PLAYER TO ARENA GATE SIDE ]
+-- Places a joined player on the gate side facing the question screen.
+-- ============================================================
+
+function movePlayerToArenaGateSide(player, context)
+	local root = getArenaRootPart(player)
+	local gateCFrame = getArenaGateSideCFrame(context)
+	if not root or not gateCFrame then
+		return false
+	end
+
+	local position = gateCFrame.Position
+	local lookAt = getArenaScreenPosition(context) or (position + gateCFrame.LookVector)
+	local flatLookAt = Vector3.new(lookAt.X, position.Y, lookAt.Z)
+
+	if (flatLookAt - position).Magnitude > 0.05 then
+		root.CFrame = CFrame.lookAt(position, flatLookAt)
+	else
+		root.CFrame = gateCFrame
+	end
+
+	return true
+end
+
+
+-- ============================================================
+-- [ REFRESH ARENA SCORING STATE ]
+-- Starts or pauses scoring based on active player count.
+-- ============================================================
+
+function refreshArenaScoringState(state, reason)
+	local activePlayerCount = getArenaMapCount(state.activePlayers)
+	local shouldEnableScoring = activePlayerCount >= ARENA_MIN_SCORED_PLAYERS
+
+	if shouldEnableScoring and not state.scoredSessionStarted then
+		state.scoredSessionStarted = true
+		state.scoringEnabled = true
+		state.scoredSessionId = state.scoredSessionId + 1
+		state.scoredSessionStartedAt = os.time()
+		state.scores = {}
+		state.scoreNames = {}
+
+		for userId, player in pairs(state.activePlayers) do
+			state.scores[userId] = 0
+			state.scoreNames[userId] = player.Name
+		end
+
+		fireAllClientsRemoteEvent("ArenaScoredSessionStarted", getArenaSessionPayload(state, {
+			reason = reason or "SecondPlayerJoined",
+			freshScoredSession = true,
+		}))
+		fireArenaLeaderboard(state, "FreshScoredSession")
+		return true
+	end
+
+	state.scoringEnabled = state.scoredSessionStarted and shouldEnableScoring
+	return false
+end
+
+local finishArenaSession
+local runArenaSessionLoop
+
+
+-- ============================================================
 -- [ PROJECT ARENA QUESTION ]
 -- Broadcasts the Arena question projection to everyone in the level server.
 -- ============================================================
 
-local function projectArenaQuestion(player, context, questionData)
+local function projectArenaQuestion(player, context, questionData, state, extra)
 	ensureArenaActivityRemotes()
+	context = context or {}
 
 	local question = nil
 	local answers = nil
@@ -490,11 +1043,25 @@ local function projectArenaQuestion(player, context, questionData)
 		questionId = questionData.questionId
 	end
 
-	local payload = getArenaActivityPayload(player, context, {
+	local payload = nil
+	local projectionExtra = {
 		question = question or context.question,
 		answers = answers or context.answers,
 		questionId = questionId or context.questionId,
-	})
+		questionSeconds = ARENA_QUESTION_SECONDS,
+	}
+
+	if extra then
+		for key, value in pairs(extra) do
+			projectionExtra[key] = value
+		end
+	end
+
+	if state then
+		payload = getArenaSessionPayload(state, projectionExtra)
+	else
+		payload = getArenaActivityPayload(player, context, projectionExtra)
+	end
 
 	fireAllClientsRemoteEvent("ArenaQuestionProjected", payload)
 	return true, "ArenaQuestionProjected", payload
@@ -502,23 +1069,537 @@ end
 
 
 -- ============================================================
+-- [ APPLY QUEUED ARENA PLAYERS ]
+-- Moves queued spectators into the active Arena during intermission.
+-- ============================================================
+
+function applyQueuedArenaPlayers(state)
+	local joinedPlayers = {}
+
+	for userId, player in pairs(state.queuedPlayers) do
+		state.queuedPlayers[userId] = nil
+
+		if player and player.Parent then
+			state.activePlayers[userId] = player
+			state.spectators[userId] = nil
+			player:SetAttribute("InArena", true)
+			player:SetAttribute("ArenaQueued", false)
+			player:SetAttribute("ArenaSpectating", false)
+			movePlayerToArenaGateSide(player, state.context)
+			table.insert(joinedPlayers, {
+				userId = userId,
+				name = player.Name,
+			})
+		end
+	end
+
+	if #joinedPlayers > 0 then
+		fireAllClientsRemoteEvent("ArenaPlayerJoined", getArenaSessionPayload(state, {
+			reason = "QueuedPlayersEntered",
+			joinedPlayers = joinedPlayers,
+		}))
+	end
+
+	refreshArenaScoringState(state, "QueuedPlayersEntered")
+	return joinedPlayers
+end
+
+
+-- ============================================================
+-- [ START ARENA INTERMISSION ]
+-- Runs the 10-second break and countdown between Arena questions.
+-- ============================================================
+
+function startArenaIntermission(state, reason)
+	state.status = "Intermission"
+	state.currentQuestion = nil
+	state.acceptingAnswers = false
+	state.answeredThisQuestion = {}
+
+	applyQueuedArenaPlayers(state)
+
+	if getArenaMapCount(state.activePlayers) <= 0 then
+		return false
+	end
+
+	fireAllClientsRemoteEvent("ArenaIntermissionStarted", getArenaSessionPayload(state, {
+		reason = reason or "BetweenQuestions",
+		intermissionSeconds = ARENA_INTERMISSION_SECONDS,
+		countdown = ARENA_INTERMISSION_SECONDS,
+		canJoinNow = true,
+	}))
+
+	for remaining = ARENA_INTERMISSION_SECONDS, 1, -1 do
+		if not state.running or getArenaMapCount(state.activePlayers) <= 0 then
+			return false
+		end
+
+		fireAllClientsRemoteEvent("ArenaCountdownTick", getArenaSessionPayload(state, {
+			countdown = remaining,
+			canJoinNow = true,
+		}))
+		task.wait(1)
+	end
+
+	fireAllClientsRemoteEvent("ArenaCountdownTick", getArenaSessionPayload(state, {
+		countdown = 0,
+		canJoinNow = false,
+	}))
+
+	return getArenaMapCount(state.activePlayers) > 0
+end
+
+
+-- ============================================================
+-- [ PRESENT ARENA QUESTION ]
+-- Projects one Arena question and waits for first correct answer or timeout.
+-- ============================================================
+
+function presentArenaQuestion(state)
+	if getArenaMapCount(state.activePlayers) <= 0 then
+		return false
+	end
+
+	local questionData = getArenaQuestionForRound(state)
+	if not questionData then
+		finishArenaSession(state, "NoArenaQuestionsConfigured")
+		return false
+	end
+
+	state.status = "Question"
+	state.roundIndex = state.roundIndex + 1
+	state.questionSequence = state.questionSequence + 1
+	state.currentQuestion = questionData
+	state.acceptingAnswers = true
+	state.answeredThisQuestion = {}
+	state.questionResolved = false
+	state.questionStartedAt = os.clock()
+	state.questionDeadline = state.questionStartedAt + ARENA_QUESTION_SECONDS
+
+	projectArenaQuestion(nil, state.context, questionData, state, {
+		canJoinNow = false,
+		queuedPlayersJoinNextIntermission = true,
+	})
+
+	local questionSequence = state.questionSequence
+	while state.running
+		and state.acceptingAnswers
+		and state.questionSequence == questionSequence
+		and getArenaMapCount(state.activePlayers) > 0 do
+		local remaining = (state.questionDeadline or os.clock()) - os.clock()
+		if remaining <= 0 then
+			break
+		end
+		task.wait(0.25)
+	end
+
+	if not state.running or getArenaMapCount(state.activePlayers) <= 0 then
+		return false
+	end
+
+	if state.acceptingAnswers and state.questionSequence == questionSequence then
+		state.acceptingAnswers = false
+		state.questionResolved = true
+		fireAllClientsRemoteEvent("ArenaQuestionResolved", getArenaSessionPayload(state, {
+			reason = "TimeExpired",
+			correctAnswer = state.currentQuestion and state.currentQuestion.correct,
+			scoreAwarded = false,
+			xpAwarded = false,
+		}))
+	end
+
+	task.wait(1)
+	return true
+end
+
+
+-- ============================================================
+-- [ FINISH ARENA SESSION ]
+-- Ends Arena when active players reach zero and resets session state.
+-- ============================================================
+
+finishArenaSession = function(state, reason)
+	if not state then
+		return false, "MissingArenaSession"
+	end
+
+	local finalPayload = getArenaSessionPayload(state, {
+		reason = reason or "ArenaEmpty",
+		finalLeaderboard = getArenaLeaderboard(state),
+		showVisuals = false,
+	})
+
+	state.running = false
+	state.status = "Idle"
+	state.activePlayers = {}
+	state.queuedPlayers = {}
+	state.spectators = {}
+	state.scores = {}
+	state.scoreNames = {}
+	state.answeredThisQuestion = {}
+	state.currentQuestion = nil
+	state.acceptingAnswers = false
+	state.scoredSessionStarted = false
+	state.scoringEnabled = false
+	state.roundIndex = 0
+	state.questionSequence = 0
+
+	fireAllClientsRemoteEvent("ArenaActivityEnded", finalPayload)
+	return true, "ArenaActivityEnded", finalPayload
+end
+
+
+-- ============================================================
+-- [ RUN ARENA SESSION LOOP ]
+-- Keeps Arena running intermission/question cycles until empty.
+-- ============================================================
+
+runArenaSessionLoop = function(state)
+	if state.running then
+		return
+	end
+
+	state.running = true
+	task.spawn(function()
+		while state.running do
+			if getArenaMapCount(state.activePlayers) <= 0 then
+				break
+			end
+
+			local hasPlayers = startArenaIntermission(state, state.roundIndex == 0 and "ArenaStarted" or "BetweenQuestions")
+			if not hasPlayers then
+				break
+			end
+
+			local questionStarted = presentArenaQuestion(state)
+			if not questionStarted then
+				break
+			end
+		end
+
+		if state.running then
+			finishArenaSession(state, "NoActivePlayers")
+		end
+	end)
+end
+
+
+-- ============================================================
 -- [ BEGIN ARENA ACTIVITY ]
--- Starts the shared Tower Arena and shows its visuals to everyone.
+-- Queues or joins a player into the shared Tower Arena session.
 -- ============================================================
 
 beginArenaActivity = function(player, context)
-	context = context or {}
+	return requestArenaJoin(player, context or {})
+end
+
+
+-- ============================================================
+-- [ PROMPT ARENA JOIN ]
+-- Touching the gate asks an eligible player whether they want to join.
+-- ============================================================
+
+promptArenaJoin = function(player, towerLevel)
 	ensureArenaActivityRemotes()
 
-	local payload = getArenaActivityPayload(player, context)
-	fireAllClientsRemoteEvent("ArenaActivityStarted", payload)
+	local allowed, reason, requiredXP, currentXP = canEnterTowerLevel(player, towerLevel)
+	if not allowed then
+		if reason == "NotEnoughXP" then
+			notifyTowerAccessDenied(player, towerLevel, requiredXP, currentXP)
+		elseif reason == "UpLevelTestRequired" then
+			notifyUpLevelTestReady(player, towerLevel, requiredXP, currentXP)
+		end
 
-	if context.question or context.currentQuestion then
-		projectArenaQuestion(player, context, context.currentQuestion)
+		firePlayerRemoteEvent(player, "ArenaJoinDenied", {
+			towerLevel = towerLevel,
+			reason = reason,
+			requiredXP = requiredXP,
+			currentXP = currentXP,
+		})
+		return false, reason, requiredXP, currentXP
 	end
 
-	return true, "ArenaActivityStarted", payload
+	firePlayerRemoteEvent(player, "ArenaJoinPromptShown", {
+		towerLevel = towerLevel,
+		prompt = "Join the Arena?",
+		yesAction = ARENA_JOIN_REQUEST_REMOTE,
+		noAction = "Dismiss",
+	})
+	return true, "ArenaJoinPromptShown"
 end
+
+
+-- ============================================================
+-- [ REQUEST ARENA JOIN ]
+-- Adds the player now during intermission/idle, or queues them mid-question.
+-- ============================================================
+
+requestArenaJoin = function(player, request)
+	ensureArenaActivityRemotes()
+
+	local context = {}
+	local towerLevel = nil
+	if type(request) == "table" then
+		context = request
+		towerLevel = request.towerLevel or request.level
+	elseif tonumber(request) then
+		towerLevel = tonumber(request)
+	end
+
+	towerLevel = math.floor(tonumber(towerLevel or context.towerLevel or getHighestUnlockedTowerLevel(player)) or DEFAULT_UNLOCKED_TOWER_LEVEL)
+	context.towerLevel = towerLevel
+	context.source = context.source or TowerLevelAreas.Arena
+	context.serverOnly = true
+	context.oneArenaPerTowerLevel = true
+	context.largeQuestionProjection = true
+	context.visibleToEntireLevelServer = true
+	context.visualOptInRequired = false
+	context.spectateRequired = false
+	context.showVisuals = true
+
+	local allowed, reason, requiredXP, currentXP = canEnterTowerLevel(player, towerLevel)
+	if not allowed then
+		if reason == "NotEnoughXP" then
+			notifyTowerAccessDenied(player, towerLevel, requiredXP, currentXP)
+		elseif reason == "UpLevelTestRequired" then
+			notifyUpLevelTestReady(player, towerLevel, requiredXP, currentXP)
+		end
+
+		firePlayerRemoteEvent(player, "ArenaJoinDenied", {
+			towerLevel = towerLevel,
+			reason = reason,
+			requiredXP = requiredXP,
+			currentXP = currentXP,
+		})
+		return false, reason, requiredXP, currentXP
+	end
+
+	local state = getArenaSession(towerLevel, context, true)
+	local userId = player.UserId
+
+	if state.activePlayers[userId] then
+		firePlayerRemoteEvent(player, "ArenaPlayerJoined", getArenaSessionPayload(state, {
+			reason = "AlreadyInArena",
+			participant = true,
+		}))
+		return true, "AlreadyInArena", state
+	end
+
+	if state.status == "Question" then
+		state.queuedPlayers[userId] = player
+		state.spectators[userId] = player
+		player:SetAttribute("ArenaQueued", true)
+		player:SetAttribute("ArenaSpectating", true)
+
+		local payload = getArenaSessionPayload(state, {
+			reason = "QueuedUntilIntermission",
+			participant = false,
+			spectating = true,
+		})
+		firePlayerRemoteEvent(player, "ArenaJoinQueued", payload)
+		firePlayerRemoteEvent(player, "ArenaSpectateStarted", payload)
+		return true, "QueuedUntilIntermission", state
+	end
+
+	local wasIdle = getArenaMapCount(state.activePlayers) == 0 and state.status == "Idle"
+	state.activePlayers[userId] = player
+	state.queuedPlayers[userId] = nil
+	state.spectators[userId] = nil
+	player:SetAttribute("InArena", true)
+	player:SetAttribute("ArenaQueued", false)
+	player:SetAttribute("ArenaSpectating", false)
+	movePlayerToArenaGateSide(player, state.context)
+
+	if wasIdle then
+		state.sessionId = state.sessionId + 1
+		state.startedAt = os.time()
+		state.status = "Intermission"
+		state.scoredSessionStarted = false
+		state.scoringEnabled = false
+		state.scores = {}
+		state.scoreNames = {}
+
+		fireAllClientsRemoteEvent("ArenaActivityStarted", getArenaSessionPayload(state, {
+			reason = "FirstPlayerJoined",
+		}))
+	else
+		fireAllClientsRemoteEvent("ArenaPlayerJoined", getArenaSessionPayload(state, {
+			reason = "JoinedDuringIntermission",
+			joinedPlayers = {
+				{
+					userId = userId,
+					name = player.Name,
+				},
+			},
+		}))
+	end
+
+	refreshArenaScoringState(state, "PlayerJoined")
+	runArenaSessionLoop(state)
+	return true, wasIdle and "ArenaStarted" or "JoinedArena", state
+end
+
+
+-- ============================================================
+-- [ SUBMIT ARENA ANSWER ]
+-- Correct answers only score/award XP while at least 2 players are active.
+-- ============================================================
+
+submitArenaAnswer = function(player, request)
+	local selectedAnswer = request
+	local towerLevel = nil
+
+	if type(request) == "table" then
+		selectedAnswer = request.selectedAnswer or request.answer or request.choice
+		towerLevel = request.towerLevel
+	end
+
+	local state = findArenaSessionForPlayer(player, towerLevel)
+	if not state or not state.activePlayers[player.UserId] then
+		firePlayerRemoteEvent(player, "ArenaAnswerResult", {
+			reason = "NotArenaParticipant",
+			wasCorrect = false,
+		})
+		return false, "NotArenaParticipant"
+	end
+
+	if not state.acceptingAnswers or not state.currentQuestion then
+		firePlayerRemoteEvent(player, "ArenaAnswerResult", getArenaSessionPayload(state, {
+			reason = "NoActiveQuestion",
+			wasCorrect = false,
+		}))
+		return false, "NoActiveQuestion"
+	end
+
+	if state.answeredThisQuestion[player.UserId] then
+		firePlayerRemoteEvent(player, "ArenaAnswerResult", getArenaSessionPayload(state, {
+			reason = "AlreadyAnswered",
+			wasCorrect = false,
+		}))
+		return false, "AlreadyAnswered"
+	end
+
+	local question = state.currentQuestion
+	local answerText = selectedAnswer
+	if type(answerText) == "number" then
+		answerText = question.answers[answerText]
+	end
+	answerText = tostring(answerText or "")
+
+	state.answeredThisQuestion[player.UserId] = true
+	local wasCorrect = answerText == question.correct
+	local scoreAwarded = false
+	local xpAwarded = false
+
+	if wasCorrect then
+		local activePlayerCount = getArenaMapCount(state.activePlayers)
+		local canScore = state.scoredSessionStarted and activePlayerCount >= ARENA_MIN_SCORED_PLAYERS
+
+		if canScore then
+			state.scores[player.UserId] = (state.scores[player.UserId] or 0) + 1
+			state.scoreNames[player.UserId] = player.Name
+			scoreAwarded = true
+
+			if awardExperience then
+				awardExperience(player, XP_REWARDS.CorrectAnswer)
+				xpAwarded = true
+			end
+
+			fireArenaLeaderboard(state, "CorrectAnswer")
+		end
+
+		state.acceptingAnswers = false
+		state.questionResolved = true
+
+		local resultPayload = getArenaSessionPayload(state, {
+			reason = canScore and "CorrectAnswer" or "PracticeCorrectNoScore",
+			wasCorrect = true,
+			selectedAnswer = answerText,
+			correctAnswer = question.correct,
+			winnerUserId = player.UserId,
+			winnerName = player.Name,
+			scoreAwarded = scoreAwarded,
+			xpAwarded = xpAwarded,
+			practiceOnly = not canScore,
+		})
+
+		firePlayerRemoteEvent(player, "ArenaAnswerResult", resultPayload)
+		fireAllClientsRemoteEvent("ArenaQuestionResolved", resultPayload)
+		return true, scoreAwarded and "CorrectScoreAwarded" or "PracticeCorrectNoScore", state
+	end
+
+	firePlayerRemoteEvent(player, "ArenaAnswerResult", getArenaSessionPayload(state, {
+		reason = "WrongAnswer",
+		wasCorrect = false,
+		selectedAnswer = answerText,
+		correctAnswer = question.correct,
+		scoreAwarded = false,
+		xpAwarded = false,
+		playerEliminated = false,
+	}))
+	return false, "WrongAnswer", state
+end
+
+
+-- ============================================================
+-- [ LEAVE ARENA ]
+-- Exit button/disconnect cleanup. The session ends when 0 active players remain.
+-- ============================================================
+
+leaveArena = function(player, request, reason)
+	local towerLevel = nil
+	if type(request) == "table" then
+		towerLevel = request.towerLevel
+	elseif tonumber(request) then
+		towerLevel = tonumber(request)
+	end
+
+	local state = findArenaSessionForPlayer(player, towerLevel)
+	if not state then
+		return false, "NotInArena"
+	end
+
+	local userId = player.UserId
+	local wasActive = state.activePlayers[userId] ~= nil
+	state.activePlayers[userId] = nil
+	state.queuedPlayers[userId] = nil
+	state.spectators[userId] = nil
+	player:SetAttribute("InArena", false)
+	player:SetAttribute("ArenaQueued", false)
+	player:SetAttribute("ArenaSpectating", false)
+
+	local payload = getArenaSessionPayload(state, {
+		reason = reason or "LeftArena",
+		leftUserId = userId,
+		leftName = player.Name,
+	})
+
+	firePlayerRemoteEvent(player, "ArenaPlayerLeft", payload)
+	fireAllClientsRemoteEvent("ArenaPlayerLeft", payload)
+
+	if wasActive then
+		refreshArenaScoringState(state, "PlayerLeft")
+		fireArenaLeaderboard(state, "PlayerLeft")
+
+		if getArenaMapCount(state.activePlayers) <= 0 then
+			return finishArenaSession(state, "NoActivePlayers")
+		end
+	end
+
+	return true, "LeftArena", state
+end
+
+
+-- ============================================================
+-- [ CLEAR PLAYER ARENA PRESENCE ]
+-- Removes a disconnecting player from any Arena state.
+-- ============================================================
+
+clearPlayerArenaPresence = function(player)
+	leaveArena(player, nil, "PlayerRemoving")
+end
+
+Players.PlayerRemoving:Connect(clearPlayerArenaPresence)
 
 
 -- ============================================================
@@ -1005,7 +2086,7 @@ end
 -- Tells the client the player can attempt the next up-level test.
 -- ============================================================
 
-local function notifyUpLevelTestReady(player, nextLevel, requiredXP, currentXP)
+notifyUpLevelTestReady = function(player, nextLevel, requiredXP, currentXP)
 	firePlayerRemoteEvent(player, "UpLevelTestReady", {
 		nextTowerLevel = nextLevel,
 		requiredXP = requiredXP,
@@ -1019,7 +2100,7 @@ end
 -- Adds XP, capped at the next up-level test requirement.
 -- ============================================================
 
-local function awardExperience(player, amount)
+awardExperience = function(player, amount)
 	local gain = math.max(0, math.floor(tonumber(amount) or 0))
 	local currentXP = getPlayerExperience(player)
 	local capXP, nextLevel = getPlayerExperienceCap(player)
@@ -1147,7 +2228,7 @@ end
 -- Tells the client that a Tower level is locked.
 -- ============================================================
 
-local function notifyTowerAccessDenied(player, towerLevel, requiredXP, currentXP)
+notifyTowerAccessDenied = function(player, towerLevel, requiredXP, currentXP)
 	firePlayerRemoteEvent(player, "TowerAccessDenied", {
 		towerLevel = towerLevel,
 		requiredXP = requiredXP,
@@ -2610,7 +3691,7 @@ end
 
 -- ============================================================
 -- [ BIND TOWER LEVEL ARENA PORTAL ]
--- Connects the level Arena area to the local server arena mode.
+-- Connects the level Arena gate to the join prompt.
 -- ============================================================
 
 local function bindTowerLevelArenaPortal(portalPart, towerLevel)
@@ -2624,7 +3705,7 @@ local function bindTowerLevelArenaPortal(portalPart, towerLevel)
 			return
 		end
 
-		routeTowerLevelArena(player, towerLevel)
+		promptArenaJoin(player, towerLevel)
 	end)
 end
 
@@ -2714,8 +3795,9 @@ end
 
 
 -- ============================================================
--- [ ANSWER SELECTION / SCORING ]
--- Called when a player selects an answer in Arena, 1v1, or Group mode.
+-- [ ANSWER SELECTION / SCORING FALLBACK ]
+-- Used by simple trivia modes. Arena uses submitArenaAnswer so solo
+-- practice and session leaderboard rules can be enforced.
 -- First correct answer scores a point and awards XP; wrong answer scores nothing.
 -- ============================================================
 

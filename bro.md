@@ -22,7 +22,7 @@
 ### 3.1 Core Mechanics
 | Mechanic | Description | Priority (High/Med/Low) |
 |---|---|---|
-| Select-answer trivia | Players pick from multiple choice answers; first correct answer scores a point (Arena, 1v1, Group) | High |
+| Select-answer trivia | Players pick from multiple choice answers; first correct answer scores a point when the mode is in a scored state (Arena, 1v1, Group) | High |
 | Dungeon path-picking | Correct answer path = collect coin and advance; wrong path = lose coins + full dungeon reset | High |
 | Dungeon reset | Kill the player on wrong answer, respawn at dungeon start, reset all coins in the dungeon | High |
 | Anti-copy (Dungeon) | No chat, players invisible to each other so no one can follow the correct path | High |
@@ -34,6 +34,8 @@
 | Up-level boss test server | The up-level test is a separate solo server with boss-fight trivia gameplay: a boss, problem board, timer, boss health bar, and player health bar | High |
 | Community housing | Each Tower level has a Community area where players can buy or rent houses | Med |
 | Arena visibility | Arena activity is visible by default to everyone in that Tower level server because each level has one large Arena area with a huge question projection | High |
+| Arena gate join flow | Unlocked players touch the Arena gate, confirm `Join the Arena?`, then join immediately during intermission or spectate/queue during an active question | High |
+| Arena session leaderboard | Arena keeps a top-5 leaderboard only for the current arena session; it resets when the arena becomes empty | High |
 | Group stage placement | Group mode creates a stage, problem display, and chairs in either a Tower Community or the home Playground depending on permissions | High |
 | Group activity spectate | Group activities are spectatable, but their stage visuals only appear for a player after that player chooses to spectate | High |
 | Group stage nearby info | When a player walks near a Group stage, show the host-created stage name and the selected question type as `Level X - Topic` | High |
@@ -48,7 +50,7 @@
 ### 3.3 Game Modes
 | Mode | Description | Players |
 |---|---|---|
-| Arena | Free-for-all trivia; select-answer format; first correct answer scores a point. Unlike Group, Arena is the one large shared activity area on each Tower level, so its activity and huge question projection are visible to everyone in that level server without requiring spectate. | 3+ |
+| Arena | Free-for-all trivia inside the player's unlocked Tower level. One player can play as practice, but score and XP only count when at least two active players are inside. Touching the Arena gate opens `Join the Arena?`; accepted players join during intermission, while mid-question joiners spectate and queue for the next intermission. Unlike Group, Arena is the one large shared activity area on each Tower level, so its activity and huge question projection are visible to everyone in that level server without requiring spectate. | 1+ practice, 2+ scored |
 | 1v1 | Same as Arena but only two players dueling each other | 2 |
 | Group | Free-for-all trivia like Arena; players can create a physical group stage with the problem shown on stage and chairs for attendants. When players walk near a stage, they see the host-created stage name and the question type label, formatted as `Level X - Topic`. Normal players can create public stages only in unlocked Tower Community zones. Battlepass players can create stages in Tower Community zones or the home Playground, and may switch the activity from public to invite-only. | 3+ |
 | Dungeon | Solo obby with ~50 questions; each question is a branching path; pick correct path to collect a coin and advance; wrong path = lose coins + full reset to dungeon start; players are invisible to each other, no chat; failed run = 5 min cooldown or pay to skip | Solo |
@@ -90,7 +92,30 @@ Each up-level test has its own matching test server/place. Example: the Level 1 
 - Arena questions use a very large projection/display, so players elsewhere on the level can see what question is active.
 - Seeing the Arena activity does not automatically make the player a participant; it only means the physical activity and projected question are public inside that level server.
 
-### 3.7 Playground & Group Activity Rules
+### 3.7 Arena Session Rules
+- Only players who have unlocked that Tower level can join that level's Arena.
+- The Arena starts when at least 1 eligible player joins and stops only when active players reach 0.
+- A solo player can practice questions, but solo answers give no session score and no XP.
+- Score and XP begin only when at least 2 active players are in the Arena.
+- If the Arena began as solo practice, the second active player starts a fresh scored session at the next intermission; if they join during intermission, that same intermission becomes the scored-session start.
+- The Arena runs forever until everyone leaves.
+- Players cannot die inside Arena; wrong answers give no points and do not eliminate the player.
+- Current scoring placeholder: first correct answer for a question scores 1 point. The final score formula can change later.
+- Arena questions come from a controlled question bank. AI-generated questions are not planned for the first version.
+- Each session shows a top-5 leaderboard using only scores from that session. Scores are not saved and do not carry to later sessions.
+- When the Arena becomes empty, the session leaderboard resets.
+
+### 3.8 Arena Join, Intermission, and Exit
+- The Arena entrance uses a gate prompt: `Join the Arena?` with Yes / No choices.
+- Clicking Yes during intermission joins the player into the active Arena roster immediately.
+- Clicking Yes during an active question puts the player into spectator/queue state.
+- Queued spectators enter the Arena during the next intermission.
+- Intermission lasts 10 seconds between questions and shows a clear countdown.
+- When players enter from the queue, they are gathered on the gate side of the Arena facing the opposite side's large question projection screen.
+- Arena has an exit button. Leaving removes the player from active, queued, or spectator state.
+- If a player leaves/disconnects, the server removes that player from the Arena session.
+
+### 3.9 Playground & Group Activity Rules
 - The Playground is part of the home server and sits next to the lobby.
 - The first Playground activity is Group mode.
 - Normal players cannot create Playground activities.
@@ -156,6 +181,8 @@ Each up-level test has its own matching test server/place. Example: the Level 1 
 - [ ] TeleportService place routing
 - [ ] Tower level server router
 - [ ] Tower Arena shared visibility/projection broadcaster
+- [ ] Tower Arena gate prompt, join queue, spectator state, intermission loop, and exit handler
+- [ ] Tower Arena solo-practice rule, fresh scored-session reset, answer scoring, and top-5 session leaderboard
 - [ ] Up-level boss fight test handler
 - [ ] XP cap / pause system
 - [ ] Community house buy/rent system
@@ -184,7 +211,22 @@ Each up-level test has its own matching test server/place. Example: the Level 1 
 | ExperienceCapped | Event | Server | Client | Tell the player XP gain is paused until they pass the up-level test |
 | TowerCommunityEntered | Event | Server | Client | Tell the player they entered the Community area for a Tower level |
 | ArenaActivityStarted | Event | Server | Client | Tell every client in the level server to show the shared Arena activity visuals |
+| ArenaJoinPromptShown | Event | Server | Client | Show the `Join the Arena?` Yes / No prompt when an eligible player touches the Arena gate |
+| ArenaJoinRequested | Event | Client | Server | Confirm that the player clicked Yes on the Arena gate prompt |
+| ArenaJoinDenied | Event | Server | Client | Tell the player they cannot join because the Tower level is locked or unavailable |
+| ArenaJoinQueued | Event | Server | Client | Tell a mid-question joiner they are queued for the next intermission |
+| ArenaPlayerJoined | Event | Server | Client | Tell clients that a player entered the active Arena roster |
+| ArenaSpectateStarted | Event | Server | Client | Tell a queued player they are spectating until the next intermission |
+| ArenaIntermissionStarted | Event | Server | Client | Tell clients the 10-second break between Arena questions has started |
+| ArenaCountdownTick | Event | Server | Client | Sync the visible Arena intermission countdown |
 | ArenaQuestionProjected | Event | Server | Client | Send the current Arena question and answers to the large public Arena projection |
+| ArenaQuestionResolved | Event | Server | Client | Tell clients when a question ended, who was first correct if any, and whether score/XP counted |
+| ArenaAnswerSelected | Event | Client | Server | Submit a player's selected Arena answer |
+| ArenaAnswerResult | Event | Server | Client | Tell a player whether their Arena answer was correct, wrong, already used, or practice-only |
+| ArenaExitRequested | Event | Client | Server | Request to leave the active Arena, queue, or spectator state |
+| ArenaPlayerLeft | Event | Server | Client | Tell clients that a player left the Arena session |
+| ArenaLeaderboardUpdated | Event | Server | Client | Sync the top-5 leaderboard for the current Arena session |
+| ArenaScoredSessionStarted | Event | Server | Client | Tell clients that the second active player started a fresh scored session |
 | ArenaActivityEnded | Event | Server | Client | Tell every client in the level server to clear the shared Arena activity visuals |
 | GroupStageCreateRequested | Event | Client | Server | Request a Group stage in a Tower Community or the Playground |
 | GroupStageJoinRequested | Event | Client | Server | Request to join a public or invite-only Group stage |
@@ -212,7 +254,7 @@ Each up-level test has its own matching test server/place. Example: the Level 1 
 ## 8. Data & Persistence
 - **DataStore Keys:** `PlayerProgress_v1:{UserId}`
 - **Saved Player Data:** coins, total XP, highest unlocked Tower level, passed up-level tests, Battlepass ownership/entitlement, owned/rented houses, settings, inventory
-- **Session Data (not saved):** current mode run, active Arena projection state, dungeon run state, active Community group stages, active Playground group stages, per-player group spectate opt-ins, portal touch debounce
+- **Session Data (not saved):** current mode run, active Arena projection state, active Arena roster, queued Arena spectators, Arena intermission countdown, Arena per-session top-5 leaderboard, dungeon run state, active Community group stages, active Playground group stages, per-player group spectate opt-ins, portal touch debounce
 - **Data Migration Plan:** (how to handle schema changes on live game)
 
 ---
@@ -276,6 +318,14 @@ Each up-level test has its own matching test server/place. Example: the Level 1 
 - [ ] Level teleport portals only send players to unlocked Tower levels
 - [ ] Community area allows valid house buy/rent actions only for players with that Tower level unlocked
 - [ ] Arena activity and the large question projection are visible to everyone in the Tower level server without clicking spectate
+- [ ] Arena gate shows `Join the Arena?` and only unlocked players can accept
+- [ ] Arena starts with 1 player as practice and gives no score/XP while solo
+- [ ] When the second active player joins, Arena starts a fresh scored session at intermission
+- [ ] Players who join during an active Arena question spectate and queue until the next intermission
+- [ ] Arena intermission lasts 10 seconds and shows a clear countdown
+- [ ] Arena exit button removes active, queued, and spectator players correctly
+- [ ] Arena ends and resets the session leaderboard when active players reach 0
+- [ ] Arena leaderboard shows only the top 5 scores from the current session and does not persist
 - [ ] Group mode creates a physical stage layout in a Community zone or the Playground with problem display and attendant chairs
 - [ ] Normal players can create public Group stages only in unlocked Tower Community zones
 - [ ] Normal players cannot create Group stages in the Playground
@@ -312,3 +362,4 @@ Each up-level test has its own matching test server/place. Example: the Level 1 
 - Decide how many physical Group stages can exist in one Community black space at the same time.
 - Add the real Battlepass game pass ID.
 - Decide how many Group stages can exist in the Playground at the same time.
+- Decide final Arena score values, XP rewards, question timer length, and complete question-bank content by Tower level/topic.
