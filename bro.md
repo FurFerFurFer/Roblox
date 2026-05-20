@@ -298,11 +298,167 @@ Each up-level test has its own matching test server/place. Example: the Level 1 
 - **Free Models Policy:** (allowed / not allowed / allowed with review)
 - **Audio:** (Roblox library / custom uploaded / no audio)
 - **External Tools:** (Blender, Photoshop, Moon Animator, Aseprite, etc.)
-- **Version Control:** (GitHub, Rojo, manual backups)
+- **Version Control:** Use Git/GitHub with Rojo for scripts. Keep Roblox Studio as the source of truth for maps, lighting, terrain, and visual world building until the project needs a fully managed Rojo setup.
 
 ---
 
-## 13. Testing Checklist
+## 13. Rojo Development Workflow
+
+### 13.1 Recommendation
+Brain Brawl should use Rojo because the game is planned as a multi-system Roblox experience with Arena, Dungeon, Group stages, Tower progression, DataStores, remotes, UI controllers, teleport routing, and up-level boss tests.
+
+Use a **partially managed Rojo workflow**:
+- Rojo manages game code and shared configuration.
+- Roblox Studio manages the physical world, maps, parts, portals, terrain, lighting, UI positioning, and visual layout.
+- Do not Rojo-sync the full map in the first version.
+- Do not edit Rojo-controlled scripts inside Studio because the file version will overwrite Studio changes.
+
+### 13.2 Constructive Critique
+- Rojo adds setup work and can slow down a beginner at first.
+- Syncing the entire map too early can create confusion, especially while the world layout is still changing.
+- If scripts stay scattered inside random parts, portals, GUI objects, and tools, the project will become hard to maintain.
+- Brain Brawl has enough systems that Studio-only scripting will likely become painful once remotes, DataStores, teleport places, and mode logic grow.
+- The safer path is to start with scripts only, then expand Rojo usage later if the project needs it.
+
+### 13.3 Initial Setup Steps
+1. Install VS Code.
+2. Install the Rojo VS Code extension.
+3. Install the Rojo CLI.
+4. Install the Rojo Roblox Studio plugin.
+5. Create the project folders:
+
+```text
+src/
+  server/
+  client/
+  shared/
+```
+
+6. Use the folders this way:
+
+```text
+src/server = ServerScriptService scripts and server modules
+src/client = StarterPlayerScripts client controllers
+src/shared = ReplicatedStorage modules, configs, and shared constants
+```
+
+7. Create `default.project.json` in the project root:
+
+```json
+{
+  "name": "BrainBrawl",
+  "tree": {
+    "$className": "DataModel",
+
+    "ReplicatedStorage": {
+      "$className": "ReplicatedStorage",
+      "$path": "src/shared"
+    },
+
+    "ServerScriptService": {
+      "$className": "ServerScriptService",
+      "$path": "src/server"
+    },
+
+    "StarterPlayer": {
+      "$className": "StarterPlayer",
+      "StarterPlayerScripts": {
+        "$className": "StarterPlayerScripts",
+        "$path": "src/client"
+      }
+    }
+  }
+}
+```
+
+8. Add first test files:
+
+```text
+src/shared/TowerConfig.luau
+src/server/Main.server.luau
+src/client/Main.client.luau
+```
+
+9. Example `TowerConfig.luau`:
+
+```luau
+local TowerConfig = {}
+
+TowerConfig.LevelRequirements = {
+	[1] = 0,
+	[2] = 100,
+	[3] = 250,
+}
+
+return TowerConfig
+```
+
+10. Example `Main.server.luau`:
+
+```luau
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local TowerConfig = require(ReplicatedStorage:WaitForChild("TowerConfig"))
+
+print("Brain Brawl server loaded", TowerConfig.LevelRequirements[2])
+```
+
+11. Example `Main.client.luau`:
+
+```luau
+print("Brain Brawl client loaded")
+```
+
+12. Start the Rojo server from the project folder:
+
+```bash
+rojo serve
+```
+
+13. Open Roblox Studio.
+14. Open the Brain Brawl place.
+15. Open the Rojo plugin from the Plugins tab.
+16. Click Connect.
+17. Confirm the synced instances appear:
+- `ReplicatedStorage/TowerConfig`
+- `ServerScriptService/Main`
+- `StarterPlayer/StarterPlayerScripts/Main`
+
+### 13.4 Day-to-Day Workflow
+- Edit scripts in VS Code.
+- Run `rojo serve` while developing.
+- Connect the Rojo plugin in Roblox Studio.
+- Build and adjust physical maps in Studio.
+- Save/publish the Roblox place from Studio when map changes are ready.
+- Commit script/config changes through Git.
+- Keep `bro.md` as the design plan.
+- Keep `bro.luau` as the rough implementation draft until systems are split into real modules.
+
+### 13.5 Migration Order From `bro.luau`
+Move code from `bro.luau` into real Rojo modules in this order:
+
+```text
+1. shared/TowerConfig.luau
+2. shared/Remotes.luau
+3. server/PlayerDataService.luau
+4. server/TowerService.luau
+5. server/ArenaService.luau
+6. server/DungeonService.luau
+7. server/GroupStageService.luau
+8. server/UpLevelTestService.luau
+9. client/UIController.luau
+10. client/ArenaController.luau
+```
+
+### 13.6 Open Rojo Questions
+- Which computer/OS will be used for Rojo development?
+- Will the project use GitHub from the start or only local Git at first?
+- Should each Tower level place use the same shared code through Rojo, or should each place get separate project files later?
+- When real Roblox place IDs exist, should `default.project.json` add `servePlaceIds` to reduce the risk of syncing into the wrong place?
+
+---
+
+## 14. Testing Checklist
 - [ ] Solo playtest in Studio
 - [ ] Team test (multi-player server)
 - [ ] Mobile device test
@@ -339,7 +495,7 @@ Each up-level test has its own matching test server/place. Example: the Level 1 
 
 ---
 
-## 14. Launch Checklist
+## 15. Launch Checklist
 - [ ] Game thumbnail uploaded
 - [ ] Game icon uploaded
 - [ ] Description written
@@ -351,7 +507,7 @@ Each up-level test has its own matching test server/place. Example: the Level 1 
 
 ---
 
-## 15. Notes & Open Questions
+## 16. Notes & Open Questions
 - Pick real numbers for S1, S2, and S3.
 - Add the real Roblox place IDs for Tower Level 1, Tower Level 2, Tower Level 3, and each level-specific dungeon.
 - Decide whether game mode portals stay inside the lobby place or teleport players to separate mode places.

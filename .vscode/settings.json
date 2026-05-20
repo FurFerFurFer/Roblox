@@ -1,7 +1,6 @@
 {
-    "Lua.workspace.library": [
-        "${addons}/ncine/module/library"
-    ],
-    "Lua.runtime.version": "Lua 5.5",
-    "Lua.workspace.checkThirdParty": false
+    "files.associations": {
+        "*.luau": "luau"
+    },
+    "luau-lsp.studioPlugin.enabled": true
 }
