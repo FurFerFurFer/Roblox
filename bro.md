@@ -30,7 +30,7 @@
 | Lobby portal hub | Players first spawn in the home/lobby base with mode portals, a Play button for direct Tower level entry, and access to a separate Tower area | High |
 | Home Playground | A place next to the lobby for optional activities; the first supported activity is Group mode stages | High |
 | Tower XP unlocks | Tower levels are separate server/place destinations; XP qualifies the player for an up-level test, and passing that test unlocks the next level | High |
-| Tower Area gates | The Tower physically appears in its own Tower Area; players can climb or ride upward anywhere, but each level gate stays locked until the player's current/highest level allows entry | High |
+| Tower Area gates | The Tower physically appears in its own Tower Area as a visual progression landmark and teleport-gate structure; players can climb or ride upward anywhere, but each level gate stays locked until the player's current/highest level allows entry | High |
 | Tower Play button | A lobby Play button lets players choose a Tower level directly, using the same server-side current/highest level check as physical Tower gates | High |
 | Tower level server format | Every Tower level server uses the same four-area layout: Arena, Dungeon Teleport, Spawn & Level Teleport, and Community | High |
 | Up-level boss test server | The up-level test is a separate solo server with boss-fight trivia gameplay: a boss, problem board, timer, boss health bar, and player health bar | High |
@@ -61,14 +61,14 @@
 ### 3.4 Lobby & Tower Flow
 - Every player first spawns in the home server.
 - The home server contains distinct spaces: Lobby Base, the broader Lobby area, the Playground, and the Tower area.
-- The lobby contains portals for Arena, 1v1, and Dungeon. The Tower is a physical progression landmark in the lobby rather than a separate hub server.
+- The lobby contains portals for Arena, 1v1, and Dungeon. The Tower is a physical progression landmark and gate structure in the lobby rather than a separate hub server or gameplay interior.
 - Group activity creation happens from the Playground in the home server or from Community zones inside unlocked Tower levels.
 - Game mode portals send the player into the selected mode.
 - Players reach physical Tower gates by entering the Tower area, then using a traversal elevator or climbing route to move upward.
 - There is no elevator floor selector. The elevator/climb path is for movement and exploration; the Play button is the direct level-selection shortcut.
 - Higher Tower level gates are physically placed higher up the Tower so progression is visible and motivating.
 - Tower floors/areas are not locked. Players may explore upward and see higher-level gates before they can enter them.
-- A Tower level gate teleports the player directly to that level's separate Tower level server only if that level is unlocked.
+- A Tower level gate teleports the player directly to that level's separate Tower level server only if that level is unlocked; the lobby Tower itself is not where Tower level gameplay happens.
 - Locked Tower gates should be physically and visually blocked. The server still performs the final unlock check, so exploiters cannot enter by clipping, spoofing remotes, or touching the gate from the wrong side.
 - The Play button can choose a Tower level directly, but it must use the same server-side current/highest level validation as the physical Tower gates.
 - Each Tower level is a different server/place.
@@ -76,7 +76,8 @@
 - Inside the Tower area, each level gate checks whether that level has been unlocked. XP/current level alone does not open a gate if an up-level test is still required.
 - If the player has reached the XP requirement but has not passed the up-level test, the portal stays locked and should tell them to take the separate solo test.
 - If the player has not reached the XP requirement, the portal stays locked and should show the missing XP requirement.
-- For the first version, Tower has three levels: Level 1 is the starting level, Level 2 requires S2 XP and a passed up-level test, and Level 3 requires S3 XP and a passed up-level test.
+- For the first version, Tower has three physical and functional levels: Level 1 is the starting level, Level 2 requires S2 XP and a passed up-level test, and Level 3 requires S3 XP and a passed up-level test.
+- Level 4+ should not be built yet, but the level config, gate naming pattern, destination mapping, and repeated Tower level layout should make adding higher levels straightforward later.
 - Up-level tests are not one of the four repeated Tower level areas. They are separate server/place experiences using a solo boss-fight version of the trivia gameplay: a boss appears, a timed problem appears in front of the player, correct answers damage the boss, and wrong or expired answers damage the player.
 - The up-level test pass condition is depleting the boss health bar. If the player's health bar reaches zero first, the test is failed and the next Tower level stays locked.
 
@@ -149,7 +150,7 @@ Each up-level test has its own matching test server/place. Example: the Level 1 
   - [ ] Lobby Base — first spawn/home landing area with mode portals and the Play button
   - [ ] Lobby — broader home social/navigation area connected to Lobby Base, Playground, and Tower area
   - [ ] Playground — activity area next to the lobby; Battlepass players can place Group stages here
-  - [ ] Tower Area — separate home-server area containing the visible high tower, traversal elevator, climb route, and vertically arranged level gates
+  - [ ] Tower Area — separate home-server area containing the visible high tower, traversal elevator, climb route, and vertically arranged teleport gates; the first build stops at Level 3
   - [ ] Tower Level 1 — separate level server/place with Arena, Dungeon Teleport, Spawn & Level Teleport, and Community areas
   - [ ] Tower Level 2 — separate level server/place with the same four-area format, unlocked by Level 1 up-level test
   - [ ] Tower Level 3 — separate level server/place with the same four-area format, unlocked by Level 2 up-level test
@@ -188,7 +189,7 @@ Each up-level test has its own matching test server/place. Example: the Level 1 
 - [ ] Lobby portal router
 - [ ] Tower level unlock checker
 - [ ] TeleportService place routing
-- [ ] Tower gate router, Play button router, current/highest level checker, and locked-gate blocker
+- [ ] Tower gate router, Play button router, current/highest level checker, locked-gate blocker, and destination place allowlist
 - [ ] Tower level server router
 - [ ] Tower Arena shared visibility/projection broadcaster
 - [ ] Tower Arena gate prompt, join queue, spectator state, intermission loop, and exit handler
@@ -211,7 +212,7 @@ Each up-level test has its own matching test server/place. Example: the Level 1 
 - [ ] Shared constants / config
 - [ ] Utility functions
 - [ ] Remotes manifest
-- [ ] Tower XP threshold config
+- [ ] Tower XP threshold config and level-to-destination mapping that can extend past Level 3 later
 
 ### 7.4 Remote Events & Functions
 | Name | Type (Event/Function) | Fired By | Handled By | Purpose |
@@ -495,6 +496,8 @@ rojo serve
 - Commit script/config changes through Git with clear messages.
 - Push branches to GitHub for backup and review.
 - Keep `bro.md` as the design plan.
+- Keep `To-Do.md` as the builder task guide, checklist, testing routine, and
+  handoff checklist.
 - Keep `bro.luau` as the rough implementation draft until systems are split into real modules.
 
 ### 13.8 Migration Order From `bro.luau`
@@ -535,6 +538,8 @@ Move code from `bro.luau` into real Rojo modules in this order:
 - [ ] Tower gates reject players below the XP/current-level requirement or without the required up-level test
 - [ ] Tower gates allow players who have unlocked that Tower level
 - [ ] Play button direct level selection rejects locked levels and allows unlocked levels using the same checks as Tower gates
+- [ ] Tower gate and Play button routing reject invalid level numbers, missing place IDs, and destination place IDs outside the server allowlist
+- [ ] First build exposes only Level 1, Level 2, and Level 3 Tower gates while keeping the naming/config format ready for Level 4+
 - [ ] XP stops increasing when the player reaches the next up-level test requirement
 - [ ] Up-level tests launch in a separate solo timed boss-fight server
 - [ ] Passing an up-level test unlocks the next Tower level and resumes XP gain
@@ -583,6 +588,16 @@ Move code from `bro.luau` into real Rojo modules in this order:
 - Confirmed: current Tower level means the player's highest available Tower level based on their XP/progression state.
 - Confirmed: there is no elevator floor selector. The Play button is the direct way to choose and teleport to a Tower level.
 - Confirmed: the Play button must reuse the same current/highest level validation as physical Tower gates.
+- Confirmed: the lobby Tower is a visual decoration, progression landmark, and physical gate area. It does not contain the actual Tower level gameplay; each unlocked gate teleports to the matching level destination.
+- Confirmed: first build stops at Tower Level 3 physically and functionally, but the config, naming, gate layout, and destination mapping should be easy to extend for Level 4+ later.
+- Tower motivation note: the shared lobby Tower should feel like a clear, achievable goal because higher floors are visible, more decorated, and carry an elite-genius status fantasy.
+- Difficulty/status note: baseline gameplay should not feel punishingly hard; higher Tower levels should mainly communicate stronger tests, greater status, and deeper progression rather than making new players feel blocked by difficulty.
+- Player experience critique to revisit later: avoid making lower floors feel like a boring zone; even early floors need enough energy, social proof, and reward feedback to make new players feel included while still wanting to climb higher.
+- Navigation note: climbing or riding upward should be atmospheric, but repeated access should not become friction. The Play button remains the fast path, while the physical Tower is the prestige and discovery path.
+- Scope note: approved efficient building approach is to decorate milestone floors heavily and use reusable modular pieces for connector floors. Upper floors can feel richer through lighting, signage, materials, silhouettes, and status displays instead of unique assets everywhere.
+- Future design note: leaderboard displays may help communicate Tower status later, but their exact format and placement are deferred.
+- Technical note: do not add an extra server just to hold the visible lobby Tower. Keep the physical Tower in the home server; use separate places/servers only for Tower level gameplay, dungeons, and up-level tests.
+- Server verification note: approved access model is that every Tower gate and direct Play button request must be validated server-side against saved player data: highest unlocked Tower level, required XP threshold, passed up-level test, and destination place ID allowlist. The client may request entry, but the server chooses whether to teleport or deny.
 - Pick real numbers for S1, S2, and S3.
 - Add the real Roblox place ID for the home/lobby place.
 - Add the real Roblox place IDs for Tower Level 1, Tower Level 2, Tower Level 3, and each level-specific dungeon.
@@ -600,185 +615,188 @@ Move code from `bro.luau` into real Rojo modules in this order:
 
 ## 17. To Do List
 
-This section is the builder guide for turning the Brain Brawl plan into an actual Roblox experience. It covers work that can be planned with AI and work that must be done manually in Roblox Studio by a builder, designer, artist, tester, or project owner.
+Moved to [To-Do.md](To-Do.md).
 
-### 17.1 Builder Mission
-- Build the physical spaces players understand immediately: lobby, Playground, Tower levels, Arena, Dungeon routes, Community zones, Group stages, and up-level boss test arenas.
-- Keep gameplay readable before making it pretty. Players should always know where to go, what mode they are entering, and what is dangerous, locked, public, private, or spectatable.
-- Use simple blockouts first, then add detail after movement, scale, camera visibility, UI prompts, and teleport flow all work.
-- Treat every map object as part of gameplay communication: color, lighting, signs, portals, paths, walls, chairs, stages, screens, and barriers should all explain rules without needing long text.
+---
 
-### 17.2 What AI Can Help With
-- Draft design plans, build checklists, naming conventions, module plans, data schemas, UI copy, question bank formats, and Luau implementation drafts.
-- Review map plans for player flow, exploit risks, unclear rules, scope problems, accessibility, and performance concerns.
-- Generate reference prompts, mood boards, placeholder text, asset lists, layout diagrams, and construction steps.
-- Help write scripts that connect to builder-made objects after the builder creates and names those objects in Studio.
-- Help document handoff requirements so scripters know which parts, folders, attributes, tags, and RemoteEvents to expect.
+## 18. Project Management & Collaboration
 
-### 17.3 What AI Cannot Do Directly
-- Build the final map inside Roblox Studio unless a future Studio/MCP connection is added and explicitly approved.
-- Visually inspect unpublished Studio-only work unless screenshots, files, or exported models are provided.
-- Publish places, configure universe permissions, upload thumbnails/icons/audio, or set final monetization IDs.
-- Make final subjective art decisions for the owner; it can recommend, but the owner/builder must approve the look.
-- Verify exact mobile feel, controller feel, network behavior, DataStore behavior, or live monetization behavior without real playtests.
-- Replace a human builder's scale judgment for jumps, sightlines, portal spacing, collision, mood, and readability.
+### 18.1 Roblox Studio Code Map
+This project is connected to Roblox Studio through Rojo. Files in the Rojo project folder sync into Studio, so organizing files on disk also makes Explorer easier to understand.
 
-### 17.4 Builder Workflow
-1. Read `bro.md` before starting a new area.
-2. Choose one build target, such as Lobby Base blockout, Tower Area blockout, Tower Level 1 Arena, Dungeon Level 1, or Up-Level Test 1.
-3. Write a short goal for the build: what the player should do there, what they should see first, and what system scripts need from the map.
-4. Block out the space with simple parts, labels, and placeholder colors.
-5. Playtest movement scale before adding decoration.
-6. Add named anchor parts for scripts: spawn points, portal triggers, arena gates, question displays, answer pads, exit buttons, stage anchors, chair anchors, and boss arena markers.
-7. Add collision boundaries, anti-fall protection, invisible walls, kill planes, and reset zones where needed.
-8. Add lighting, materials, signs, props, effects, and sound only after the gameplay path is clear.
-9. Test in Studio solo, then test with multiple players.
-10. Record unresolved issues in `bro.md` or a separate task note before moving to the next area.
+Current synced code:
 
-### 17.5 Studio Organization Rules
-- Use clear folders in Workspace for each area: `LobbyBase`, `Lobby`, `Playground`, `TowerArea`, `TowerLevel1`, `TowerLevel2`, `TowerLevel3`, `Dungeons`, `UpLevelTests`, and `SharedMapAssets`.
-- Use predictable part names so scripts can find them later, such as `ArenaGateTrigger`, `ArenaExitTrigger`, `LobbyTowerGate_Level2`, `LobbyTowerElevatorStop_Level2`, `QuestionScreen`, `AnswerPad_A`, `GroupStageAnchor`, and `DungeonResetZone`.
-- Add Roblox CollectionService tags later for script-driven objects that appear many times, such as portals, answer pads, kill zones, stage seats, and spectate triggers.
-- Keep decorative models separate from gameplay-critical collision and trigger parts.
-- Do not hide important trigger parts inside decorative models without naming them clearly.
-- Prefer anchored, simple collision for early prototypes.
-- Use attributes for level numbers, mode names, destination IDs, unlock requirements, or stage capacity when a script needs per-object configuration.
+```text
+ReplicatedStorage
+  TowerConfig          <- shared ModuleScript
 
-### 17.6 Map Building Checklist
-- [ ] Lobby has a first spawn point that faces the main mode portals.
-- [ ] Lobby Base, Lobby, and Tower Area read as separate spaces.
-- [ ] Lobby portals are visually distinct for Arena, 1v1, and Dungeon.
-- [ ] The visible Tower Area reads as progression, not a normal game mode portal.
-- [ ] Play button is available from Lobby Base and clearly supports direct Tower level selection.
-- [ ] Playground is visibly next to the lobby and has room for Group stages.
-- [ ] Tower Area has a clear entrance, traversal elevator, and climb route.
-- [ ] Tower gates climb upward so the tower communicates progression through height.
-- [ ] Tower gates are named clearly, such as `LobbyTowerGate_Level1`, `LobbyTowerGate_Level2`, and `LobbyTowerGate_Level3`.
-- [ ] Tower floors/areas can be explored even when higher gates are locked.
-- [ ] Locked Tower gates are visually locked, physically blocked, and still checked by the server when touched.
-- [ ] Tower Level 1 has Arena, Dungeon Teleport, Spawn & Level Teleport, and Community areas.
-- [ ] Tower Level 2 repeats the same four-area structure with a stronger visual theme.
-- [ ] Tower Level 3 repeats the same four-area structure with the highest-tier visual theme.
-- [ ] Each Tower level has a large Arena with a question projection visible from the wider level server.
-- [ ] Arena entrance has a gate/prompt area and a clear exit route.
-- [ ] Arena has standing/player zones that face the projected question display.
-- [ ] Arena spectators can understand the activity without joining.
-- [ ] Community zones have black/open space reserved for player-created Group stages.
-- [ ] Group stages have enough space for stage, display, chairs, host position, join/spectate prompt, and nearby info trigger.
-- [ ] Dungeons have about 50 question checkpoints or a planned path system that can scale to 50.
-- [ ] Dungeon wrong-answer paths can reliably reset/kill the player without softlocking them.
-- [ ] Dungeon correct paths can place collectible coins clearly without encouraging accidental wrong turns.
-- [ ] Dungeon layout prevents players from easily watching or following other players.
-- [ ] Up-level test arenas have boss placement, player placement, question display, answer area, timer visibility, and health bar sightlines.
-- [ ] All maps include invisible boundaries, fall protection, and reset handling.
-- [ ] All important routes are readable on mobile screens and from Roblox's default camera distance.
+ServerScriptService
+  Main                 <- server Script
 
-### 17.7 Gameplay Object Checklist
-- [ ] Spawn locations are placed and named.
-- [ ] Portal trigger parts are placed and named.
-- [ ] Portal destination labels are visible.
-- [ ] Locked portal visuals are different from available portal visuals.
-- [ ] Arena gate trigger is placed.
-- [ ] Arena exit trigger or button is placed.
-- [ ] Arena question screen/projection part is placed.
-- [ ] Arena answer selection zones are placed.
-- [ ] Dungeon checkpoint/question zones are placed.
-- [ ] Dungeon answer paths or answer pads are placed.
-- [ ] Dungeon reset zones and kill zones are placed.
-- [ ] Coin pickup locations are placed.
-- [ ] Group stage anchors are placed in Community and Playground spaces.
-- [ ] Group stage chair anchors are planned.
-- [ ] Group stage problem display anchor is planned.
-- [ ] Nearby info trigger range is planned around each Group stage.
-- [ ] Up-level boss anchor, player anchor, answer zones, and camera-friendly display positions are placed.
+StarterPlayer
+  StarterPlayerScripts
+    Main               <- client LocalScript
+```
 
-### 17.8 Visual Design Checklist
-- [ ] Choose a clear visual identity for Brain Brawl before final art polish.
-- [ ] Give each mode a recognizable color/material language.
-- [ ] Give each Tower level a stronger or more advanced theme than the previous level.
-- [ ] Use signs, arrows, lighting, and landmark shapes to guide players without too much text.
-- [ ] Keep answer areas visually simple so trivia choices stay readable.
-- [ ] Avoid clutter around UI prompts, question screens, and answer pads.
-- [ ] Use contrast for interactable objects, locked objects, danger, and rewards.
-- [ ] Keep the Dungeon tense but readable; do not hide correct/incorrect path choices with decoration.
-- [ ] Keep the Arena open enough for spectators to understand what is happening.
-- [ ] Make the Playground feel social and flexible, with room for player-created activity.
+Current UI screens:
 
-### 17.9 Performance Checklist
-- [ ] Use low-detail blockouts until the gameplay loop is proven.
-- [ ] Avoid excessive unanchored parts.
-- [ ] Merge or simplify decorative meshes where possible.
-- [ ] Keep particle effects limited and purposeful.
-- [ ] Avoid too many transparent parts in one view.
-- [ ] Check memory and frame rate on a lower-end device before launch.
-- [ ] Use StreamingEnabled testing if the final map becomes large.
-- [ ] Keep physics-heavy decorations away from core gameplay.
-- [ ] Test how many active Group stages can exist before the area becomes crowded or slow.
+```text
+StarterGui
+  AdventureGuide
+  LoginSystem
+  PlayButton
+  Tutorial
+```
 
-### 17.10 Collaboration With Scripters
-- [ ] Tell scripters the exact names and locations of all gameplay-critical parts.
-- [ ] Do not rename scripted objects without telling the scripting side.
-- [ ] Use placeholder parts first so scripts can be connected before final art is finished.
-- [ ] Ask scripters before changing trigger size, collision, part hierarchy, or object names.
-- [ ] Keep one simple test map for each system before building the final polished map.
-- [ ] When a script needs an object, add a clear placeholder instead of waiting for final art.
-- [ ] When an object is only decorative, keep it outside script folders or mark it clearly.
+Ignore this Rojo helper object:
 
-### 17.11 Exploit And Safety Review
-- [ ] Players cannot touch portals they have not unlocked by jumping around barriers.
-- [ ] Locked Tower gates cannot be entered from behind, above, below, or through wall clipping.
-- [ ] Players cannot enter Arena, Dungeon, Group, or up-level test spaces through gaps.
-- [ ] Players cannot stand behind question screens or answer pads to break the interaction.
-- [ ] Players cannot skip Dungeon questions by jumping, clipping, wall-hopping, or falling to a lower route.
-- [ ] Players cannot view another Dungeon player's correct route.
-- [ ] Group stage placement cannot block important paths, spawns, portals, or exits.
-- [ ] Invite-only Group stages still allow spectating but block joining correctly.
-- [ ] Kill zones and reset zones cannot repeatedly trap a player.
-- [ ] Spawn points do not place players inside collision, under the map, or facing away from the main route.
+```text
+ServerStorage
+  __Rojo_SessionLock
+```
 
-### 17.12 Testing Routine For Builders
-- [ ] Walk the map slowly as a new player and check whether the next action is obvious.
-- [ ] Sprint and jump around every boundary looking for escape routes.
-- [ ] Test with default Roblox avatar sizes and several scaled avatars if allowed.
-- [ ] Test camera readability on desktop and mobile.
-- [ ] Test portal spacing with several players standing nearby.
-- [ ] Test Tower gate access for Level 1, Level 2, and Level 3 profiles.
-- [ ] Test Play button level selection for Level 1, Level 2, and Level 3 profiles.
-- [ ] Test that each locked Tower gate denies touch entry, remote-spoofed entry, Play button abuse, and physical bypass attempts.
-- [ ] Test Arena viewing from inside and outside the Arena.
-- [ ] Test Dungeon paths for accidental wrong-answer triggers.
-- [ ] Test Group stage placement with the maximum expected number of stages.
-- [ ] Test all areas with Studio graphics lowered to catch readability problems.
-- [ ] Save screenshots or short clips when asking AI or teammates for review.
+That object only means Rojo is connected to the Roblox Studio session.
 
-### 17.13 Handoff Requirements
-For each finished or semi-finished build area, provide:
-- Area name and purpose.
-- Screenshot or short walkthrough video.
-- List of important folders and object names.
-- List of trigger parts and what each one should do.
-- List of signs/UI prompts needed.
-- Known unfinished art or collision work.
-- Known risks, confusing spots, or places where players got lost during testing.
-- Any script requirements, such as attributes, tags, RemoteEvents, or teleport destination IDs.
+### 18.2 Recommended Code Organization
+Use this layout to make it obvious which files are server code, client code, shared config, remotes, or visual UI:
 
-### 17.14 Priority Order
-1. Lobby blockout and mode portals.
-2. Tower Area blockout with traversal elevator, climb route, upward level gates, and locked-gate visuals.
-3. Tower Level 1 blockout with the four required areas.
-4. Arena prototype space with question display, answer pads, gate, and exit.
-5. Dungeon Level 1 prototype with a small number of question paths before scaling to 50.
-6. Group stage prototype in Community, then Playground.
-7. Up-Level Test 1 boss arena prototype.
-8. Tower Level 2 and Tower Level 3 variations.
-9. Full Dungeon content and polish.
-10. Final visual pass, lighting, sound, signage, optimization, and launch screenshots.
+```text
+ReplicatedStorage
+  Shared
+    Config
+      TowerConfig
+    Modules
+    Remotes
 
-### 17.15 Open Builder Questions
-- What is the final mood and aesthetic for Brain Brawl?
-- Should Tower levels feel like school grades, sci-fi floors, fantasy towers, city districts, or another theme?
-- Should the Tower Area elevator be a real moving platform, a simple animated teleporter along the shaft, or a static visual with climb route only?
-- How large should each Tower level feel: compact hub, medium social map, or large exploration space?
-- Should dungeons be pure obby paths, themed rooms, quiz doors, or a mix?
-- Should Group stages use one standard model, several purchasable skins, or host-customized decoration?
-- What is the target device priority: mobile-first, desktop-first, or equal support?
+ServerScriptService
+  Server
+    ServerMain
+    Services
+      PlayerDataService
+      RoundService
+      TowerService
+
+StarterPlayer
+  StarterPlayerScripts
+    Client
+      ClientMain
+      Controllers
+        UIController
+        InputController
+
+StarterGui
+  Screens
+    AdventureGuide
+    LoginSystem
+    PlayButton
+    Tutorial
+```
+
+### 18.3 Folder Meaning
+```text
+Shared = code both server and client can use
+Server = code only the server uses
+Client = code only the player/client uses
+Screens = visual UI
+Services = server systems
+Controllers = client systems
+Config = settings/data tables
+Remotes = RemoteEvents / RemoteFunctions
+```
+
+### 18.4 Where Future Files Should Go
+Put game rules, saving, rewards, and anti-cheat logic here:
+
+```text
+ServerScriptService > Server
+```
+
+Examples:
+
+```text
+PlayerDataService
+RewardService
+QuestionService
+RoundService
+TowerService
+```
+
+Put UI button behavior, animations, camera, and input here:
+
+```text
+StarterPlayer > StarterPlayerScripts > Client
+```
+
+Examples:
+
+```text
+UIController
+PlayButtonController
+TutorialController
+CameraController
+```
+
+Put shared settings and reusable modules here:
+
+```text
+ReplicatedStorage > Shared
+```
+
+Examples:
+
+```text
+TowerConfig
+QuestionConfig
+GameConstants
+NumberFormatter
+```
+
+Put visual UI only here:
+
+```text
+StarterGui > Screens
+```
+
+Examples:
+
+```text
+LoginSystem
+PlayButton
+Tutorial
+AdventureGuide
+```
+
+### 18.5 Rojo File Naming Rules
+Rojo file names help decide what kind of Roblox object gets created:
+
+```text
+.server.luau = server Script
+.client.luau = client LocalScript
+.luau = ModuleScript / reusable code
+```
+
+Current files:
+
+```text
+src/shared/TowerConfig.luau
+src/server/Main.server.luau
+src/client/Main.client.luau
+```
+
+Cleaner future layout:
+
+```text
+src/shared/Config/TowerConfig.luau
+src/server/ServerMain.server.luau
+src/client/ClientMain.client.luau
+```
+
+Future examples:
+
+```text
+src/server/Services/PlayerDataService.luau
+src/client/Controllers/UIController.luau
+src/shared/Config/GameConfig.luau
+```
+
+Best rule: if it has `.server.luau`, it is server code. If it has `.client.luau`, it is client code. If it is just `.luau`, it is usually reusable module code.

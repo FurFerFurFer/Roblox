@@ -1,4 +1,7 @@
 --!nocheck
+-- Planning companions: `bro.md` holds the design plan, and `To-Do.md` holds
+-- builder tasks, map checklists, testing routines, and handoff requirements.
+
 -- ============================================================
 -- [ GAME MODE ROUTER ]
 -- Sends the player into the correct mode: Arena, 1v1, Group, Dungeon,
@@ -86,6 +89,12 @@ local LobbyTowerAreas = {
 	LevelGate = "LobbyTowerLevelGate",
 	PlayButton = "TowerLevelPlayButton",
 	ReturnToLobbyBase = "ReturnToLobbyBase",
+}
+
+local TOWER_DESTINATION_KINDS = {
+	Level = "TowerLevel",
+	Dungeon = "TowerDungeon",
+	UpLevelTest = "UpLevelTest",
 }
 
 local HomeServerAreas = {
@@ -235,6 +244,8 @@ local LobbyPortalRoutes = {
 	},
 }
 
+-- First build stops at Level 3. To add Level 4+, add PLACE_IDS entries,
+-- append another TowerLevelRequirements row, and add the matching lobby gate.
 local TowerLevelRequirements = {
 	[1] = {
 		requiredXP = S1,
@@ -279,6 +290,48 @@ local LobbyTowerLevelGates = {
 		lockedBarrierName = "LobbyTowerLockedBarrier_Level3",
 	},
 }
+
+
+-- ============================================================
+-- [ GET TOWER DESTINATION PLACE ID ]
+-- Looks up the server-owned place ID for one Tower destination kind.
+-- ============================================================
+
+local function getTowerDestinationPlaceId(destinationKind, towerLevel)
+	local config = TowerLevelRequirements[towerLevel]
+	if not config then
+		return nil
+	end
+
+	if destinationKind == TOWER_DESTINATION_KINDS.Level then
+		return config.placeId
+	elseif destinationKind == TOWER_DESTINATION_KINDS.Dungeon then
+		return config.dungeonPlaceId
+	elseif destinationKind == TOWER_DESTINATION_KINDS.UpLevelTest then
+		return config.upLevelTestPlaceId
+	end
+
+	return nil
+end
+
+
+-- ============================================================
+-- [ IS ALLOWED TOWER DESTINATION ]
+-- Verifies that a Tower route uses the server's configured destination.
+-- ============================================================
+
+local function isAllowedTowerDestination(destinationKind, towerLevel, placeId)
+	local expectedPlaceId = getTowerDestinationPlaceId(destinationKind, towerLevel)
+	if not expectedPlaceId or expectedPlaceId == 0 then
+		return false, "MissingPlaceId"
+	end
+
+	if placeId ~= expectedPlaceId then
+		return false, "DestinationNotAllowed"
+	end
+
+	return true, "DestinationAllowed"
+end
 
 
 -- ============================================================
@@ -2370,6 +2423,15 @@ local function routeTowerLevelEntry(player, towerLevel, source)
 	end
 
 	local config = TowerLevelRequirements[towerLevel]
+	local destinationAllowed, destinationReason = isAllowedTowerDestination(
+		TOWER_DESTINATION_KINDS.Level,
+		towerLevel,
+		config.placeId
+	)
+	if not destinationAllowed then
+		return false, destinationReason, requiredXP, currentXP
+	end
+
 	return teleportPlayerToPlace(player, config.placeId, {
 		destination = "TowerLevel",
 		source = source or LobbyTowerAreas.LevelGate,
@@ -2490,6 +2552,15 @@ local function routeTowerLevelDungeon(player, towerLevel)
 	end
 
 	local config = TowerLevelRequirements[towerLevel]
+	local destinationAllowed, destinationReason = isAllowedTowerDestination(
+		TOWER_DESTINATION_KINDS.Dungeon,
+		towerLevel,
+		config.dungeonPlaceId
+	)
+	if not destinationAllowed then
+		return false, destinationReason, requiredXP, currentXP
+	end
+
 	return teleportPlayerToPlace(player, config.dungeonPlaceId, {
 		destination = "TowerDungeon",
 		source = TowerLevelAreas.DungeonTeleport,
@@ -2517,6 +2588,15 @@ local function routeTowerLevelTravel(player, destinationTowerLevel)
 	end
 
 	local config = TowerLevelRequirements[destinationTowerLevel]
+	local destinationAllowed, destinationReason = isAllowedTowerDestination(
+		TOWER_DESTINATION_KINDS.Level,
+		destinationTowerLevel,
+		config.placeId
+	)
+	if not destinationAllowed then
+		return false, destinationReason, requiredXP, currentXP
+	end
+
 	return teleportPlayerToPlace(player, config.placeId, {
 		destination = "TowerLevel",
 		source = TowerLevelAreas.SpawnTeleport,
@@ -3770,22 +3850,27 @@ local function routeUpLevelTestPortal(player, towerLevel)
 	end
 
 	local config = TowerLevelRequirements[towerLevel]
-	if config.upLevelTestPlaceId and config.upLevelTestPlaceId ~= 0 then
-		return teleportPlayerToPlace(player, config.upLevelTestPlaceId, {
-			destination = "UpLevelTest",
-			source = UP_LEVEL_TEST_ENTRY_SOURCE,
-			towerLevel = towerLevel,
-			nextTowerLevel = nextLevel,
-			requiredXP = requiredXP,
-			currentXP = currentXP,
-			solo = true,
-			timed = true,
-			arenaStructure = true,
-			bossFight = true,
-		})
+	local destinationAllowed, destinationReason = isAllowedTowerDestination(
+		TOWER_DESTINATION_KINDS.UpLevelTest,
+		towerLevel,
+		config.upLevelTestPlaceId
+	)
+	if not destinationAllowed then
+		return false, destinationReason, nextLevel, requiredXP, currentXP
 	end
 
-	return startUpLevelTest(player, towerLevel, nextLevel)
+	return teleportPlayerToPlace(player, config.upLevelTestPlaceId, {
+		destination = "UpLevelTest",
+		source = UP_LEVEL_TEST_ENTRY_SOURCE,
+		towerLevel = towerLevel,
+		nextTowerLevel = nextLevel,
+		requiredXP = requiredXP,
+		currentXP = currentXP,
+		solo = true,
+		timed = true,
+		arenaStructure = true,
+		bossFight = true,
+	})
 end
 
 

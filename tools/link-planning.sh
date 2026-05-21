@@ -40,4 +40,5 @@ printf '\nAgent path to use from the target project:\n'
 printf '  %s/AGENTS.md\n' "$LINK_NAME"
 printf '  %s/README.md\n' "$LINK_NAME"
 printf '  %s/bro.md\n' "$LINK_NAME"
+printf '  %s/To-Do.md\n' "$LINK_NAME"
 printf '  %s/bro.luau\n' "$LINK_NAME"

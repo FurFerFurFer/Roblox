@@ -1,66 +1,56 @@
-# Brain Brawl — Project Workflow Instructions
-MUFFPAW SUCCESS IN SYNCFORK
-## How This Repo Works
+# Brain Brawl Project Workflow
 
-This directory is the planning ground for Brain Brawl. It is used for design notes,
-workflow instructions, and Luau implementation drafts, not as the final Roblox
-project source tree.
+This directory is the planning ground for Brain Brawl. It is used for design
+notes, workflow notes, and Luau implementation drafts. It is not the final
+Roblox project source tree.
 
-When the actual Roblox project exists, the owner plans to connect that project to
-this planning directory through an MCP server. Until then, agents should treat
-`bro.md` and `bro.luau` as living planning artifacts that can later be translated
-or synced into the real project.
+## AI Instruction Source
 
-Every time the user explains a new game idea or mechanic:
-1. **Review the concept first** — write a short plan or summary, criticize weak points, ask the user clarifying questions, and suggest a stronger solution when one exists
-2. **Edit `bro.md`** — add or update the relevant section in the game design plan
-3. **Edit `bro.luau`** — add or update the corresponding Luau function block
+For AI agents and local LLM tools, [AGENTS.md](AGENTS.md) is the source of truth.
+Read and follow it before answering any prompt while working in this workspace
+or changing any planning file.
 
-## Concept Review Function
+Recommended project/system instruction for tools that support custom rules:
 
-Whenever the user explains a project concept, respond with:
-- **Summary / Plan:** Restate the idea as a practical implementation plan
-- **Critique:** Point out risks, unclear parts, player-experience issues, exploit risks, scope problems, or missing systems
-- **Questions:** Ask the user the most important clarifying questions before locking the design
-- **Better Solution:** Suggest a cleaner, more fun, simpler, or more scalable version of the idea
+```text
+Always read and follow /home/furferfurfer/Desktop/Roblox-project/Roblox/AGENTS.md before answering any prompt while working in this workspace.
+```
 
-If the concept is clear enough, update `bro.md` and `bro.luau` after the review. If major choices are still unclear, ask the questions first and wait before making large code changes.
+This README is only the human-facing overview. If README.md and AGENTS.md ever
+conflict, AGENTS.md wins.
 
-## Rules for `bro.luau`
-- One separate labeled block per function — never merge multiple functions into one block
-- Each block starts with a clear `-- [ FUNCTION NAME ]` header comment
-- Functions must be self-contained and easy to read in isolation
+## Planning Files
 
-## Rules for `bro.md`
-- This is the living game design document for Brain Brawl
-- Keep it updated with everything the user explains
-- Use plain language — describe what the mechanic does and how it behaves
-
-## Cross-Workspace Planning Access
-
-Use the planning bridge when working from another VS Code folder or a future real
-Roblox project. The bridge keeps this directory as the source of truth while
-making the files visible to Claude, Codex, and other local LLM tools.
-
-Recommended workflow:
-1. Add `/home/furferfurfer/Desktop/Roblox` as a second folder in a VS Code
-   multi-root workspace.
-2. From the active project directory, run:
-   ```bash
-   bash /home/furferfurfer/Desktop/Roblox/tools/link-planning.sh .
-   ```
-3. Tell other agents to read `_brain_brawl_planning/AGENTS.md`,
-   `_brain_brawl_planning/README.md`, `_brain_brawl_planning/bro.md`, and
-   `_brain_brawl_planning/bro.luau` before changing Brain Brawl logic.
-
-More detail lives in `planning-bridge.md`.
-
-## File Map
 | File | Purpose |
 |---|---|
-| `README.md` | These workflow instructions |
-| `AGENTS.md` | Agent behavior rules for concept review and project updates |
-| `bro.md` | Game design plan — updated each session |
-| `bro.luau` | Luau code — one block per function, updated each session |
+| `AGENTS.md` | Mandatory AI behavior rules for concept review and project updates |
+| `README.md` | Human-facing workflow overview |
+| `bro.md` | Living game design plan |
+| `To-Do.md` | Builder task guide, map checklist, testing routine, and handoff checklist |
+| `bro.luau` | Luau implementation draft with one labeled block per function |
 | `planning-bridge.md` | Cross-workspace access design for VS Code and LLM tools |
 | `tools/link-planning.sh` | Helper that links this planning directory into another project |
+
+## Cross-Workspace Access
+
+When working from another VS Code folder or a future real Roblox project, keep
+this planning directory as the source of truth:
+
+```text
+/home/furferfurfer/Desktop/Roblox-project/Roblox
+```
+
+Recommended workflow:
+
+1. Add `/home/furferfurfer/Desktop/Roblox-project/Roblox` as a second folder in
+   a VS Code multi-root workspace.
+2. From the active project directory, run:
+
+   ```bash
+   bash /home/furferfurfer/Desktop/Roblox-project/Roblox/tools/link-planning.sh .
+   ```
+
+3. Tell agents in that project to read `_brain_brawl_planning/AGENTS.md` before
+   answering prompts or changing Brain Brawl files.
+
+More detail lives in [planning-bridge.md](planning-bridge.md).
