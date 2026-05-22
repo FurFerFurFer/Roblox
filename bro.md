@@ -13,7 +13,7 @@
 - **Elevator Pitch:** Brain Brawl is a competitive trivia game on Roblox with four distinct modes — from fast-paced free-for-all quiz battles to a grueling solo dungeon obby where every wrong answer sets you back. It punishes guessing and rewards real knowledge.
 - **Inspiration / References:** Quiz-style games (Kahoot, trivia battle games), obby games
 - **Win Condition / End Goal for Player:** Earn coins, beat other players, survive the full 50-question dungeon
-- **Mood & Aesthetic:** TBD
+- **Mood & Aesthetic:** Deferred; track the open aesthetic decision in [notes.md](notes.md).
 
 ---
 
@@ -22,7 +22,7 @@
 ### 3.1 Core Mechanics
 | Mechanic | Description | Priority (High/Med/Low) |
 |---|---|---|
-| Select-answer trivia | Players pick from multiple choice answers; first correct answer scores a point when the mode is in a scored state (Arena, 1v1, Group) | High |
+| Select-answer trivia | Players pick from multiple choice answers in the player UI; first correct answer scores a point when the mode is in a scored state (Arena, 1v1, Group). Arena and Group do not use physical answer pads. | High |
 | Dungeon path-picking | Correct answer path = collect coin and advance; wrong path = lose coins + full dungeon reset | High |
 | Dungeon reset | Kill the player on wrong answer, respawn at dungeon start, reset all coins in the dungeon | High |
 | Anti-copy (Dungeon) | No chat, players invisible to each other so no one can follow the correct path | High |
@@ -31,14 +31,16 @@
 | Home Playground | A place next to the lobby for optional activities; the first supported activity is Group mode stages | High |
 | Tower XP unlocks | Tower levels are separate server/place destinations; XP qualifies the player for an up-level test, and passing that test unlocks the next level | High |
 | Tower Area gates | The Tower physically appears in its own Tower Area as a visual progression landmark and teleport-gate structure; players can climb or ride upward anywhere, but each level gate stays locked until the player's current/highest level allows entry | High |
+| Highest-level launch pad | A Tower Area launch pad uses a controlled launch animation to send a player toward their server-validated highest unlocked Tower level, reducing repeated climb time while still letting the physical Tower show progression | Med |
+| Progression sprint stamina | Extra sprint stamina applies everywhere as the preferred movement progression reward instead of raw speed boosts; exact earning rule and values are still undecided | Med |
 | Tower Play button | A lobby Play button lets players choose a Tower level directly, using the same server-side current/highest level check as physical Tower gates | High |
 | Tower level server format | Every Tower level server uses the same four-area layout: Arena, Dungeon Teleport, Spawn & Level Teleport, and Community | High |
 | Up-level boss test server | The up-level test is a separate solo server with boss-fight trivia gameplay: a boss, problem board, timer, boss health bar, and player health bar | High |
-| Community housing | Each Tower level has a Community area where players can buy or rent houses | Med |
+| Community housing | Each Tower level has a Community area with a reserved `HousesArea`; actual house models only appear after a player buys, rents, or adds one | Med |
 | Arena visibility | Arena activity is visible by default to everyone in that Tower level server because each level has one large Arena area with a huge question projection | High |
 | Arena gate join flow | Unlocked players touch the Arena gate, confirm `Join the Arena?`, then join immediately during intermission or spectate/queue during an active question | High |
 | Arena session leaderboard | Arena keeps a top-5 leaderboard only for the current arena session; it resets when the arena becomes empty | High |
-| Group stage placement | Group mode creates a stage, problem display, and chairs in either a Tower Community or the home Playground depending on permissions | High |
+| Group stage placement | Group mode uses a reserved `GroupStagesArea`; actual stage models, problem displays, and chairs appear only after a player creates/adds a stage in a Tower Community or the home Playground, depending on permissions | High |
 | Group activity spectate | Group activities are spectatable, but their stage visuals only appear for a player after that player chooses to spectate | High |
 | Group stage nearby info | When a player walks near a Group stage, show the host-created stage name and the selected question type as `Level X - Topic` | High |
 
@@ -46,6 +48,7 @@
 - **XP / Leveling System:** Players collect XP by answering correctly and completing runs. XP is used as a requirement check for an up-level test, not as the final unlock by itself.
 - **Currency:** Coins — earned by scoring in trivia modes and collected physically in Dungeon mode
 - **Unlockables:** Tower levels unlock after the player reaches the required XP for the next level and passes the up-level test. Level 1 is unlocked by default; Level 2 requires S2 XP plus the Level 1 up-level test; Level 3 requires S3 XP plus the Level 2 up-level test.
+- **Sprint Stamina:** Players can gain extra sprint stamina as a progression reward. The stamina benefit applies everywhere, but the exact earning rule, stamina values, drain rate, and recharge rate are still open decisions.
 - **XP Cap Rule:** When a player reaches the XP requirement for their next up-level test, they stop gaining more XP until they pass that test and unlock the next Tower level.
 - **Replayability Hooks:** Dungeon completion (high-stakes, one long run), competitive scoring in Arena/1v1/Group
 
@@ -53,6 +56,7 @@
 | Mode | Description | Players |
 |---|---|---|
 | Arena | Free-for-all trivia inside the player's unlocked Tower level. One player can play as practice, but score and XP only count when at least two active players are inside. Touching the Arena gate opens `Join the Arena?`; accepted players join during intermission, while mid-question joiners spectate and queue for the next intermission. Unlike Group, Arena is the one large shared activity area on each Tower level, so its activity and huge question projection are visible to everyone in that level server without requiring spectate. | 1+ practice, 2+ scored |
+| Quickmatch | Fast Play-menu option that sends the player toward the default public trivia match flow. Prototype routing notes live in [notes.md](notes.md). | 1+ |
 | 1v1 | Same as Arena but only two players dueling each other | 2 |
 | Group | Free-for-all trivia like Arena; players can create a physical group stage with the problem shown on stage and chairs for attendants. When players walk near a stage, they see the host-created stage name and the question type label, formatted as `Level X - Topic`. Normal players can create public stages only in unlocked Tower Community zones. Battlepass players can create stages in Tower Community zones or the home Playground, and may switch the activity from public to invite-only. | 3+ |
 | Dungeon | Solo obby with ~50 questions; each question is a branching path; pick correct path to collect a coin and advance; wrong path = lose coins + full reset to dungeon start; players are invisible to each other, no chat; failed run = 5 min cooldown or pay to skip | Solo |
@@ -61,16 +65,21 @@
 ### 3.4 Lobby & Tower Flow
 - Every player first spawns in the home server.
 - The home server contains distinct spaces: Lobby Base, the broader Lobby area, the Playground, and the Tower area.
+- The home lobby should be organized into two nearby but clearly separable zones. The main action zone contains the game mode portals and the clear path to the Tower Area. The info/social route zone contains the leaderboard, login board, tutorial board, guide board, and the clear path to the Playground.
+- The game mode portals and Tower Area path should be close to each other so players understand them as the main play choices. The leaderboard, login/tutorial/guide boards, and Playground path should be close to each other so players understand them as information and social navigation. These two zones should be easy to separate visually through layout, spacing, floor shape, lighting, signs, railings, arches, or another simple cue.
 - The lobby contains portals for Arena, 1v1, and Dungeon. The Tower is a physical progression landmark and gate structure in the lobby rather than a separate hub server or gameplay interior.
 - Group activity creation happens from the Playground in the home server or from Community zones inside unlocked Tower levels.
 - Game mode portals send the player into the selected mode.
+- The Play button opens a small choice menu. The first choices are Tower and Quickmatch. Tower opens the Level 1, Level 2, and Level 3 selection buttons. Quickmatch sends the player toward the default public match flow.
 - Players reach physical Tower gates by entering the Tower area, then using a traversal elevator or climbing route to move upward.
 - There is no elevator floor selector. The elevator/climb path is for movement and exploration; the Play button is the direct level-selection shortcut.
 - Higher Tower level gates are physically placed higher up the Tower so progression is visible and motivating.
 - Tower floors/areas are not locked. Players may explore upward and see higher-level gates before they can enter them.
+- Current direction: do not use a plain speed boost as the Tower traversal reward. Instead, add a Tower Area launch pad that uses a controlled launch animation to send the player toward their highest unlocked Tower level after the server validates saved progression.
+- Extra sprint stamina can apply everywhere as a progression reward instead of higher movement speed. The main current gameplay benefit is faster solo Dungeon completion, which is not directly competitive, but stamina scaling still needs to be balanced with Dungeon reward and progression pacing.
 - A Tower level gate teleports the player directly to that level's separate Tower level server only if that level is unlocked; the lobby Tower itself is not where Tower level gameplay happens.
 - Locked Tower gates should be physically and visually blocked. The server still performs the final unlock check, so exploiters cannot enter by clipping, spoofing remotes, or touching the gate from the wrong side.
-- The Play button can choose a Tower level directly, but it must use the same server-side current/highest level validation as the physical Tower gates.
+- When the Play button's Tower choice is used, the selected Tower level must use the same server-side current/highest level validation as the physical Tower gates.
 - Each Tower level is a different server/place.
 - Inside a Tower level, the Spawn & Level Teleport area is the player's spawn area and can include a return portal back to the Lobby Base. Direct level-to-level travel should be secondary to the Tower gates and Play button.
 - Inside the Tower area, each level gate checks whether that level has been unlocked. XP/current level alone does not open a gate if an up-level test is still required.
@@ -86,19 +95,48 @@ Every Tower level server uses the same structure so players always understand wh
 
 | Area | Purpose |
 |---|---|
-| Arena | Local free-for-all arena for players currently inside that same Tower level server. The arena is visible by default, and its oversized question projection can be seen across the level server without a spectate opt-in |
+| Arena | Local free-for-all arena for players currently inside that same Tower level server. The arena is visible by default, and its oversized question projection can be seen across the level server without a spectate opt-in. Players choose answers from their player UI, so Arena does not need physical answer pads |
 | Dungeon Teleport | Portal to that level's specific dungeon; only players with that Tower level unlocked can enter |
 | Spawn & Level Teleport | Player spawn area plus optional return portal to the Lobby Base; direct level travel is optional and must reuse the same unlock checks |
-| Community | Social/economy area for that level. Players can buy or rent houses, and Group free-for-all stages can physically appear in the black space with a problem display and attendant chairs |
+| Community | Social/economy area for that level. It reserves `HousesArea` and `GroupStagesArea`, but actual house models and Group stage models only appear when a player buys/rents/adds a house or creates/adds a Group stage |
 
 Each Tower level has one matching dungeon. Example: Tower Level 1 sends to Dungeon Level 1, Tower Level 2 sends to Dungeon Level 2, and Tower Level 3 sends to Dungeon Level 3.
 Each up-level test has its own matching test server/place. Example: the Level 1 -> Level 2 test sends one player to Up-Level Test 1, while the Level 2 -> Level 3 test sends one player to Up-Level Test 2.
+
+#### Tower Level 1 Workspace Folder Plan
+Tower Level 1 should follow the current Studio organization below. These are starter folders and reserved spaces, not a list of every object that must already exist.
+
+```text
+Workspace
+├─ SharedMapAssets
+└─ TowerLevel1
+   ├─ Arena
+   │  ├─ ArenaStructure
+   │  ├─ Inside
+   │  └─ Outerpart
+   ├─ DungeonTeleport
+   ├─ Community
+   │  ├─ HousesArea
+   │  └─ GroupStagesArea
+   ├─ LevelStructure&GameplayBoundaries
+   ├─ LevelDecorations
+   └─ SpawnAndLevelTeleport
+      ├─ ReturnToLobby
+      └─ Spawn
+```
+
+Do not add `SpawnSafeZone` to Tower Level 1. There is no combat battle in the spawn area, so the spawn only needs clear space, readable direction, and collision-safe placement.
+
+Do not add `AnswerPad_A`, `AnswerPad_B`, `AnswerPad_C`, or `AnswerPad_D` to Arena. The player answers through UI buttons. The physical Arena still needs readable space, a public question screen/projection, join/exit flow, and spectator readability.
+
+`HousesArea` and `GroupStagesArea` are reserved areas. They should show where houses and Group stages can be placed, but the actual house or stage objects should only exist after a player adds, buys, rents, or creates them.
 
 ### 3.6 Arena Visibility Rules
 - Each Tower level has one main Arena area, not many hidden player-made arena stages.
 - Arena activity visuals are visible by default to everyone in that Tower level server.
 - Arena does not require a player to join or click spectate before they can see the activity.
 - Arena questions use a very large projection/display, so players elsewhere on the level can see what question is active.
+- Arena answer choices are selected through the player's UI, not by stepping on physical answer pads.
 - Seeing the Arena activity does not automatically make the player a participant; it only means the physical activity and projected question are public inside that level server.
 
 ### 3.7 Arena Session Rules
@@ -109,7 +147,7 @@ Each up-level test has its own matching test server/place. Example: the Level 1 
 - If the Arena began as solo practice, the second active player starts a fresh scored session at the next intermission; if they join during intermission, that same intermission becomes the scored-session start.
 - The Arena runs forever until everyone leaves.
 - Players cannot die inside Arena; wrong answers give no points and do not eliminate the player.
-- Current scoring placeholder: first correct answer for a question scores 1 point. The final score formula can change later.
+- Current prototype scoring: first correct answer for a question scores 1 point. Final score and XP values are tracked in [notes.md](notes.md).
 - Arena questions come from a controlled question bank. AI-generated questions are not planned for the first version.
 - Each session shows a top-5 leaderboard using only scores from that session. Scores are not saved and do not carry to later sessions.
 - When the Arena becomes empty, the session leaderboard resets.
@@ -121,6 +159,7 @@ Each up-level test has its own matching test server/place. Example: the Level 1 
 - Queued spectators enter the Arena during the next intermission.
 - Intermission lasts 10 seconds between questions and shows a clear countdown.
 - When players enter from the queue, they are gathered on the gate side of the Arena facing the opposite side's large question projection screen.
+- During an active Arena question, players answer through UI buttons. The map should support visibility and movement, not physical answer pad gameplay.
 - Arena has an exit button. Leaving removes the player from active, queued, or spectator state.
 - If a player leaves/disconnects, the server removes that player from the Arena session.
 
@@ -129,6 +168,7 @@ Each up-level test has its own matching test server/place. Example: the Level 1 
 - The first Playground activity is Group mode.
 - Normal players cannot create Playground activities.
 - Normal players can create Group stages in Tower Community zones for levels they have unlocked.
+- Starter Community maps should reserve `GroupStagesArea`, but should not pre-place finished Group stage models. Stage models appear only after a player creates/adds one.
 - Normal players can choose which unlocked Tower level receives their Community stage, but their stage is always public.
 - Battlepass players can create Group stages in unlocked Tower Community zones or in the Playground.
 - Battlepass players can set Group stages to public or invite-only.
@@ -137,7 +177,7 @@ Each up-level test has its own matching test server/place. Example: the Level 1 
 - Group activity visuals are opt-in for spectators: a client can know the activity exists, but the stage/chairs/problem display should not appear for that player until they click spectate.
 - This opt-in visual rule is specific to Group activities and does not apply to Arena.
 - Hosts can provide a custom stage name when creating a Group stage.
-- Group stage question content is organized by question level, and each level has many topic choices. The stage info should show the selected pair as `Level X - Topic` even while the exact question bank is still TBD.
+- Group stage question content is organized by question level, and each level has many topic choices. The stage info should show the selected pair as `Level X - Topic`; exact question-bank decisions are tracked in [notes.md](notes.md).
 - Until a live question is active, the stage problem display can use the same two-line stage info text as its placeholder.
 - Nearby Group stage info does not auto-join or auto-spectate the player; it is only an information prompt.
 
@@ -190,7 +230,9 @@ Each up-level test has its own matching test server/place. Example: the Level 1 
 - [ ] Tower level unlock checker
 - [ ] TeleportService place routing
 - [ ] Tower gate router, Play button router, current/highest level checker, locked-gate blocker, and destination place allowlist
+- [ ] Tower Area launch pad validator and controlled launch handler
 - [ ] Tower level server router
+- [ ] Sprint stamina progression and runtime validator
 - [ ] Tower Arena shared visibility/projection broadcaster
 - [ ] Tower Arena gate prompt, join queue, spectator state, intermission loop, and exit handler
 - [ ] Tower Arena solo-practice rule, fresh scored-session reset, answer scoring, and top-5 session leaderboard
@@ -206,6 +248,8 @@ Each up-level test has its own matching test server/place. Example: the Level 1 
 - [ ] Input handling
 - [ ] UI controllers
 - [ ] Camera behavior
+- [ ] Controlled launch camera and movement presentation
+- [ ] Sprint stamina input, meter, drain, and recharge presentation
 - [ ] Visual effects (particles, tweens)
 
 ### 7.3 Shared (ModuleScript)
@@ -213,13 +257,17 @@ Each up-level test has its own matching test server/place. Example: the Level 1 
 - [ ] Utility functions
 - [ ] Remotes manifest
 - [ ] Tower XP threshold config and level-to-destination mapping that can extend past Level 3 later
+- [ ] Sprint stamina config after the earning rule and values are confirmed
 
 ### 7.4 Remote Events & Functions
 | Name | Type (Event/Function) | Fired By | Handled By | Purpose |
 |---|---|---|---|---|
 | TowerAccessDenied | Event | Server | Client | Tell the player a Tower level is locked and how much XP is required |
+| PlayTeleportFailed | Event | Server | Client | Tell the player a Play-menu teleport could not start, such as when a place ID is still missing |
+| LobbyTowerGateStatesRequested | Event | Client | Server | Ask the server for fresh Tower level button states when the Play menu opens |
 | LobbyTowerGateStatesUpdated | Event | Server | Client | Tell the player which Tower gates and Play button choices are unlocked, locked, or ready for an up-level test |
 | TowerLevelPlayRequested | Event | Client | Server | Request direct entry to a chosen Tower level from the lobby Play button |
+| QuickmatchPlayRequested | Event | Client | Server | Request the Play-menu Quickmatch route |
 | UpLevelTestReady | Event | Server | Client | Tell the player they have enough XP to attempt the up-level test |
 | ExperienceCapped | Event | Server | Client | Tell the player XP gain is paused until they pass the up-level test |
 | TowerCommunityEntered | Event | Server | Client | Tell the player they entered the Community area for a Tower level |
@@ -268,17 +316,17 @@ Each up-level test has its own matching test server/place. Example: the Level 1 
 - **DataStore Keys:** `PlayerProgress_v1:{UserId}`
 - **Saved Player Data:** coins, total XP, highest unlocked Tower level, passed up-level tests, Battlepass ownership/entitlement, owned/rented houses, settings, inventory
 - **Session Data (not saved):** current mode run, active Arena projection state, active Arena roster, queued Arena spectators, Arena intermission countdown, Arena per-session top-5 leaderboard, dungeon run state, active Community group stages, active Playground group stages, per-player group spectate opt-ins, portal touch debounce
-- **Data Migration Plan:** (how to handle schema changes on live game)
+- **Data Migration Plan:** Deferred; track the live schema migration decision in [notes.md](notes.md).
 
 ---
 
 ## 9. Monetization Details
 | Product | Type | Robux Price | What It Gives |
 |---|---|---|---|
-| Dungeon Cooldown Skip | Developer Product | TBD | Skip the 5-minute wait after a failed dungeon run |
-| Battlepass | Game Pass | TBD | Create Group stages in the Playground and make Group stages invite-only |
+| Dungeon Cooldown Skip | Developer Product | Deferred | Skip the 5-minute wait after a failed dungeon run |
+| Battlepass | Game Pass | Deferred | Create Group stages in the Playground and make Group stages invite-only |
 
-- **VIP Server support:** TBD
+- **VIP Server support:** Deferred; track the decision in [notes.md](notes.md).
 - **Free-to-play friendly:** Yes — cooldown skip is convenience only
 
 ---
@@ -336,6 +384,12 @@ Use a **partially managed Rojo workflow**:
 - Roblox Studio manages the physical world, maps, parts, portals, terrain, lighting, UI positioning, and visual layout.
 - Do not Rojo-sync the full map in the first version.
 - Do not edit Rojo-controlled scripts inside Studio because the file version will overwrite Studio changes.
+
+Confirmed multi-place code organization:
+- Use one VS Code/Rojo project directory for the first build.
+- Keep shared rules in `src/shared`, general server startup in `src/server`, general client code in `src/client`, and place-specific starter modules in `src/places`.
+- Sync `src/places` into `ServerScriptService > PlaceScripts` so each real Roblox place can start the module that matches its role.
+- Open and test one Roblox place at a time in Studio, while still editing the code from the same VS Code directory.
 
 ### 13.2 Constructive Critique
 - Rojo adds setup work and can slow down a beginner at first.
@@ -496,6 +550,8 @@ rojo serve
 - Commit script/config changes through Git with clear messages.
 - Push branches to GitHub for backup and review.
 - Keep `bro.md` as the design plan.
+- Keep `notes.md` as the home for open questions, reminder notes, unfinished
+  ideas, and deferred decisions.
 - Keep `To-Do.md` as the builder task guide, checklist, testing routine, and
   handoff checklist.
 - Keep `bro.luau` as the rough implementation draft until systems are split into real modules.
@@ -516,14 +572,9 @@ Move code from `bro.luau` into real Rojo modules in this order:
 10. client/ArenaController.luau
 ```
 
-### 13.9 Open Workflow Questions
-- Which computer/OS will be used for Rojo development?
-- Will the project use GitHub from the start or only local Git at first?
-- Should each Tower level place use the same shared code through Rojo, or should each place get separate project files later?
-- When real Roblox place IDs exist, should `default.project.json` add `servePlaceIds` to reduce the risk of syncing into the wrong place?
-- Which packages are worth adding through Wally for the first production build?
-- Should Selene and StyLua be required before every merge, or only used manually at first?
-- Will GitHub pull requests be used for review, or will branches be merged locally during solo development?
+### 13.9 Workflow Notes File
+
+Moved to [notes.md](notes.md).
 
 ---
 
@@ -537,6 +588,9 @@ Move code from `bro.luau` into real Rojo modules in this order:
 - [ ] Tower floors/areas remain explorable even when higher gates are locked
 - [ ] Tower gates reject players below the XP/current-level requirement or without the required up-level test
 - [ ] Tower gates allow players who have unlocked that Tower level
+- [ ] Play button opens the first-choice menu with Tower and Quickmatch
+- [ ] Play button Tower choice opens Level 1, Level 2, and Level 3 buttons
+- [ ] Quickmatch rejects missing place IDs clearly until the real destination is configured
 - [ ] Play button direct level selection rejects locked levels and allows unlocked levels using the same checks as Tower gates
 - [ ] Tower gate and Play button routing reject invalid level numbers, missing place IDs, and destination place IDs outside the server allowlist
 - [ ] First build exposes only Level 1, Level 2, and Level 3 Tower gates while keeping the naming/config format ready for Level 4+
@@ -580,36 +634,9 @@ Move code from `bro.luau` into real Rojo modules in this order:
 
 ---
 
-## 16. Notes & Open Questions
-- Confirmed: no separate Tower Unite server/place. Tower progression is represented by the visible Tower Area in the home server.
-- Confirmed: Lobby Base, the broader Lobby area, and the Tower Area are separate physical spaces.
-- Confirmed: Tower floors/areas are not locked. Players can climb or ride upward anywhere so higher gates act as visible motivation.
-- Confirmed: locked Tower gates are the actual progression blockers; touching a gate must always check the player's current/highest Tower level on the server.
-- Confirmed: current Tower level means the player's highest available Tower level based on their XP/progression state.
-- Confirmed: there is no elevator floor selector. The Play button is the direct way to choose and teleport to a Tower level.
-- Confirmed: the Play button must reuse the same current/highest level validation as physical Tower gates.
-- Confirmed: the lobby Tower is a visual decoration, progression landmark, and physical gate area. It does not contain the actual Tower level gameplay; each unlocked gate teleports to the matching level destination.
-- Confirmed: first build stops at Tower Level 3 physically and functionally, but the config, naming, gate layout, and destination mapping should be easy to extend for Level 4+ later.
-- Tower motivation note: the shared lobby Tower should feel like a clear, achievable goal because higher floors are visible, more decorated, and carry an elite-genius status fantasy.
-- Difficulty/status note: baseline gameplay should not feel punishingly hard; higher Tower levels should mainly communicate stronger tests, greater status, and deeper progression rather than making new players feel blocked by difficulty.
-- Player experience critique to revisit later: avoid making lower floors feel like a boring zone; even early floors need enough energy, social proof, and reward feedback to make new players feel included while still wanting to climb higher.
-- Navigation note: climbing or riding upward should be atmospheric, but repeated access should not become friction. The Play button remains the fast path, while the physical Tower is the prestige and discovery path.
-- Scope note: approved efficient building approach is to decorate milestone floors heavily and use reusable modular pieces for connector floors. Upper floors can feel richer through lighting, signage, materials, silhouettes, and status displays instead of unique assets everywhere.
-- Future design note: leaderboard displays may help communicate Tower status later, but their exact format and placement are deferred.
-- Technical note: do not add an extra server just to hold the visible lobby Tower. Keep the physical Tower in the home server; use separate places/servers only for Tower level gameplay, dungeons, and up-level tests.
-- Server verification note: approved access model is that every Tower gate and direct Play button request must be validated server-side against saved player data: highest unlocked Tower level, required XP threshold, passed up-level test, and destination place ID allowlist. The client may request entry, but the server chooses whether to teleport or deny.
-- Pick real numbers for S1, S2, and S3.
-- Add the real Roblox place ID for the home/lobby place.
-- Add the real Roblox place IDs for Tower Level 1, Tower Level 2, Tower Level 3, and each level-specific dungeon.
-- Decide whether game mode portals stay inside the lobby place or teleport players to separate mode places.
-- Add the real Roblox place IDs for each separate up-level test server.
-- Confirm the exact boss health, player health, timer length, and damage values for each up-level test.
-- Decide the final topic choices available inside each question level; current stage labels support `Level X - Topic` placeholders.
-- Decide Community house prices, rental duration, limits, and whether houses are level-specific.
-- Decide how many physical Group stages can exist in one Community black space at the same time.
-- Add the real Battlepass game pass ID.
-- Decide how many Group stages can exist in the Playground at the same time.
-- Decide final Arena score values, XP rewards, question timer length, and complete question-bank content by Tower level/topic.
+## 16. Notes File
+
+Moved to [notes.md](notes.md).
 
 ---
 
@@ -629,9 +656,20 @@ Current synced code:
 ```text
 ReplicatedStorage
   TowerConfig          <- shared ModuleScript
+  PlaceConfig          <- shared ModuleScript that identifies the current place role
 
 ServerScriptService
   Main                 <- server Script
+  PlaceBootstrap       <- server ModuleScript that starts place-specific code
+  PlaceScripts
+    lobby
+      LobbyPlace
+    tower-level
+      TowerLevelPlace
+    dungeon
+      DungeonPlace
+    up-level-test
+      UpLevelTestPlace
 
 StarterPlayer
   StarterPlayerScripts
@@ -766,6 +804,27 @@ Tutorial
 AdventureGuide
 ```
 
+Important GUI scripting rule:
+
+- In the current partially managed Rojo setup, `StarterGui` screens are visual UI
+  objects made in Roblox Studio. Scripts placed directly under those GUI objects
+  in Studio, such as a `LocalScript` under a Play button, are not automatically
+  connected to VS Code unless `StarterGui` is added to `default.project.json`.
+- For the first build, keep GUI behavior in VS Code under
+  `src/client/Controllers`, then have the client controller find the real GUI in
+  `Players.LocalPlayer.PlayerGui` with `WaitForChild`.
+- Example: the Tower/Play button behavior should become a client controller such
+  as `src/client/Controllers/PlayButtonController.client.luau`, instead of a
+  Studio-only script nested inside `StarterGui > PlayButton`.
+- Do not place scripts under visual helper objects like `UICorner`. `UICorner`
+  only changes how a UI object looks; it is not a good home for gameplay or menu
+  behavior.
+- If the team later wants UI screens themselves to sync from VS Code, add a
+  planned `StarterGui` mapping to `default.project.json` and move the screen
+  hierarchy into a matching source folder. Until that decision is made, treat
+  `StarterGui` as Studio-owned visual layout and `src/client` as VS Code-owned
+  client behavior.
+
 ### 18.5 Rojo File Naming Rules
 Rojo file names help decide what kind of Roblox object gets created:
 
@@ -779,8 +838,14 @@ Current files:
 
 ```text
 src/shared/TowerConfig.luau
+src/shared/PlaceConfig.luau
 src/server/Main.server.luau
+src/server/PlaceBootstrap.luau
 src/client/Main.client.luau
+src/places/lobby/LobbyPlace.luau
+src/places/tower-level/TowerLevelPlace.luau
+src/places/dungeon/DungeonPlace.luau
+src/places/up-level-test/UpLevelTestPlace.luau
 ```
 
 Cleaner future layout:

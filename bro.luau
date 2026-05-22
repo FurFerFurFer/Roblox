@@ -1,6 +1,7 @@
 --!nocheck
--- Planning companions: `bro.md` holds the design plan, and `To-Do.md` holds
--- builder tasks, map checklists, testing routines, and handoff requirements.
+-- Planning companions: `bro.md` holds the design plan, `notes.md` holds open
+-- questions/reminders/deferred decisions, and `To-Do.md` holds builder tasks,
+-- map checklists, testing routines, and handoff requirements.
 
 -- ============================================================
 -- [ GAME MODE ROUTER ]
@@ -2662,7 +2663,7 @@ local function rentOrBuyCommunityHouse(player, towerLevel, houseId, action)
 		source = TowerLevelAreas.Community,
 	}
 
-	-- TODO: check availability, price, rental duration, and persistence.
+	-- Community house economy decisions are tracked in notes.md.
 	return true, "CommunityHouseReserved", reservation
 end
 

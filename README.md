@@ -26,6 +26,7 @@ conflict, AGENTS.md wins.
 | `AGENTS.md` | Mandatory AI behavior rules for concept review and project updates |
 | `README.md` | Human-facing workflow overview |
 | `bro.md` | Living game design plan |
+| `notes.md` | Open questions, reminders, unfinished ideas, and deferred decisions |
 | `To-Do.md` | Builder task guide, map checklist, testing routine, and handoff checklist |
 | `bro.luau` | Luau implementation draft with one labeled block per function |
 | `planning-bridge.md` | Cross-workspace access design for VS Code and LLM tools |
@@ -54,3 +55,7 @@ Recommended workflow:
    answering prompts or changing Brain Brawl files.
 
 More detail lives in [planning-bridge.md](planning-bridge.md).
+
+Use [notes.md](notes.md) for open questions, reminders, unfinished ideas, and
+deferred decisions instead of storing loose notes inside `bro.md`, `To-Do.md`,
+or `bro.luau`.

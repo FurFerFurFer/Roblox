@@ -12,12 +12,13 @@ project should be able to see these planning files without copying them:
 - `AGENTS.md`
 - `README.md`
 - `bro.md`
+- `notes.md`
 - `To-Do.md`
 - `bro.luau`
 
-This keeps `bro.md`, `To-Do.md`, and `bro.luau` as the source of truth while
-still letting Claude, Codex, and other LLM tools read the plan from the active
-project.
+This keeps `bro.md`, `notes.md`, `To-Do.md`, and `bro.luau` as the source of
+truth while still letting Claude, Codex, and other LLM tools read the plan from
+the active project.
 
 ## Recommended Setup
 
@@ -33,6 +34,7 @@ Use two access layers together:
      actively editing.
    - LLM tools that can only see the current project can then read:
      `_brain_brawl_planning/bro.md`
+     `_brain_brawl_planning/notes.md`
      `_brain_brawl_planning/To-Do.md`
      `_brain_brawl_planning/bro.luau`
      `_brain_brawl_planning/AGENTS.md`
@@ -72,19 +74,22 @@ Before answering prompts or changing Brain Brawl logic, read:
 - `_brain_brawl_planning/AGENTS.md`
 - `_brain_brawl_planning/README.md`
 - `_brain_brawl_planning/bro.md`
+- `_brain_brawl_planning/notes.md`
 - `_brain_brawl_planning/To-Do.md`
 - `_brain_brawl_planning/bro.luau`
 
 Treat those files as planning and Luau draft artifacts, not as the final Roblox
 Studio source tree. Update the planning files when the user changes the design.
-Do not copy them into the production project unless the user explicitly asks.
+Put open questions, reminders, unfinished ideas, and deferred decisions in
+`_brain_brawl_planning/notes.md`. Do not copy these files into the production
+project unless the user explicitly asks.
 ```
 
 ## Why Not Copy Files?
 
-Copying `bro.md`, `To-Do.md`, or `bro.luau` into each project would create stale
-versions. The bridge keeps one canonical planning directory and gives every tool
-a stable path to it.
+Copying `bro.md`, `notes.md`, `To-Do.md`, or `bro.luau` into each project would
+create stale versions. The bridge keeps one canonical planning directory and
+gives every tool a stable path to it.
 
 ## Future MCP Version
 
@@ -94,6 +99,7 @@ planning resources first:
 - `brain-brawl://agents`
 - `brain-brawl://workflow`
 - `brain-brawl://design`
+- `brain-brawl://notes`
 - `brain-brawl://to-do`
 - `brain-brawl://luau-draft`
 

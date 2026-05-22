@@ -47,11 +47,14 @@ Use clear status labels so notes do not imply more certainty than the user gave:
 mark approved decisions as confirmed, unresolved topics as open questions, and
 early or debated ideas as notes/ideas to revisit. If important design choices
 are missing or clarifying questions remain unanswered, capture what is known,
-ask the questions, and wait before implementing.
+put the unresolved parts in `notes.md`, ask the questions, and wait before
+implementing.
 
 ## File Responsibilities
 
 - `bro.md` is the living game design plan for Brain Brawl.
+- `notes.md` is the central home for open questions, reminder notes,
+  unfinished ideas, deferred decisions, and loose planning notes.
 - `To-Do.md` is the builder task guide and checklist extracted from topic 17 of
   `bro.md`.
 - `bro.luau` is the Luau implementation draft. Keep one separate labeled block per function.
@@ -64,6 +67,6 @@ ask the questions, and wait before implementing.
 If this planning directory is reached through `_brain_brawl_planning` from
 another project, still treat
 `/home/furferfurfer/Desktop/Roblox-project/Roblox` as the planning source of
-truth. Do not copy `bro.md`, `To-Do.md`, or `bro.luau` into a production project
-unless the user explicitly asks. Update the planning files here when the user
-changes the design.
+truth. Do not copy `bro.md`, `notes.md`, `To-Do.md`, or `bro.luau` into a
+production project unless the user explicitly asks. Update the planning files
+here when the user changes the design.
