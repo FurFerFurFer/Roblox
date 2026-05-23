@@ -1,6 +1,6 @@
 # 17. To Do List
 
-This file is the builder and scripting checklist for turning the Brain Brawl plan into an actual Roblox experience. It is the standalone version of topic 17 from `bro.md`.
+This file is the builder and scripting checklist for turning the Brain Brawl plan into an actual Roblox experience. It is the standalone version of topic 17 from `bro.md`. It also contains the start-of-coding GitHub, Roblox Studio, and Rojo routine so every coding session begins from the same workflow.
 
 Update this file whenever the design plan changes physical spaces, gameplay objects, Studio organization, testing needs, exploit risks, or handoff requirements. Keep each task in one section only. If a task affects multiple areas, put it in the shared review or handoff section instead of repeating it under every map.
 
@@ -10,6 +10,59 @@ Status labels:
 
 Open questions, reminders, unfinished ideas, and deferred decisions live in
 [notes.md](notes.md), not in this checklist.
+
+## Start Every Coding Session
+
+Use this first before coding, syncing scripts, or testing Studio changes. This
+section is the canonical daily GitHub, Roblox Studio, and Rojo routine.
+
+### One-Time Setup
+
+- [ ] Confirm the owner controls the GitHub repo; collaborators either request changes through PRs or receive approved push access.
+- [ ] Move the Roblox game to a Group so collaborators can be Group members with owner-level edit access when needed.
+- [ ] For Rojo sync work, open the place through `File > Open from Roblox`, not by joining Team Create.
+
+### Daily Dev Loop
+
+1. [ ] Pull the latest code from GitHub.
+2. [ ] Open the place through `File > Open from Roblox`, not by joining Team Create.
+3. [ ] In a terminal, go to `Desktop/Roblox-project/test-server`.
+4. [ ] Run `rojo serve`.
+5. [ ] Connect the Rojo plugin in Studio and confirm scripts sync automatically.
+6. [ ] Build and test.
+7. [ ] Save and publish to Roblox.
+8. [ ] Push code changes to GitHub.
+
+### Building With A Friend
+
+- [ ] Use Team Create normally for world building.
+- [ ] Remember that Rojo only touches scripts; it does not modify Workspace.
+- [ ] If a friend's Workspace needs to be merged into the local place, use the merge routine below.
+
+Workspace merge routine:
+
+1. Join the friend's Team Create session.
+2. Select all of `Workspace` in Explorer, then copy it.
+3. Open the local place file.
+4. Right-click `Workspace`, then choose `Paste Into`.
+5. Save and publish.
+
+### Rojo And Team Create Rule
+
+- [ ] Do not use a Team Create join session for Rojo script syncing.
+- [ ] Roblox blocks plugins from writing `Script.Source` in Team Create sessions.
+- [ ] If Rojo silently appears to do nothing, check whether the place was opened from Team Create instead of `File > Open from Roblox` or a local `.rbxlx` file.
+
+### Rojo Quick Reference
+
+| Task | Command |
+|---|---|
+| Start Rojo server | `rojo serve` in `test-server/` |
+| Build static place file | `rojo build -o test-server.rbxlx` |
+| Check server is running | `curl http://localhost:34872/api/rojo` |
+
+- Rojo port: `34872`.
+- Project config: `test-server/default.project.json`.
 
 ## How To Use This Checklist
 
@@ -37,16 +90,17 @@ next and points you to the detailed checklist for that area.
 
 Use this order unless the owner changes priorities. The detailed work for each phase lives in the matching section, so this list only controls sequence.
 
-1. [ ] Lobby foundation: complete section 17.4.
-2. [ ] Tower Area landmark and gates: complete section 17.5.
-3. [ ] Tower Level 1 destination: complete section 17.6 for Level 1 first.
-4. [ ] Arena prototype: complete section 17.7.
-5. [ ] Dungeon prototype: complete section 17.8.
-6. [ ] Group stage prototype: complete section 17.9.
-7. [ ] Up-Level Test 1 prototype: complete section 17.10.
-8. [ ] Tower Level 2 and Tower Level 3 variations: return to section 17.6.
-9. [ ] Shared visual and performance pass: complete sections 17.11 and 17.12.
-10. [ ] Final safety, testing, and handoff pass: complete sections 17.13, 17.14, and 17.15.
+1. [ ] Figure out how to properly sync code from VS Code to Roblox Studio (Argon/Rojo).
+2. [ ] Lobby foundation: complete section 17.4.
+3. [ ] Tower Area landmark and gates: complete section 17.5.
+4. [ ] Tower Level 1 destination: complete section 17.6 for Level 1 first.
+5. [ ] Arena prototype: complete section 17.7.
+6. [ ] Dungeon prototype: complete section 17.8.
+7. [ ] Group stage prototype: complete section 17.9.
+8. [ ] Up-Level Test 1 prototype: complete section 17.10.
+9. [ ] Tower Level 2 and Tower Level 3 variations: return to section 17.6.
+10. [ ] Shared visual and performance pass: complete sections 17.11 and 17.12.
+11. [ ] Final safety, testing, and handoff pass: complete sections 17.13, 17.14, and 17.15.
 
 ## Use Chunk 2: Read Before Building Anything
 
@@ -94,7 +148,7 @@ Goal: players spawn, understand where to go, and can choose the main activity wi
 - [ ] Place the Playground beside the lobby with enough open space for social activity and Group stages.
 - [ ] Reserve clean paths from spawn to the main portals so Group stages and crowds cannot block movement.
 - [ ] Add readable signs, arrows, lighting, or landmark shapes for each main mode.
-- [ ] Add placeholder trigger parts for each portal and record the intended destination or mode.
+- [ ] Add real portal trigger parts by hand only when the lobby design needs them, then record the intended destination or mode. The starter code must not auto-create the old `Portals` helper folder or flat placeholder portal pads during Play or Simulate.
 
 Validation:
 - [ ] A new player can identify the main choices within the first few seconds after spawning.
@@ -117,7 +171,7 @@ Goal: the home-server Tower Area should sell progression visually while acting o
 - [ ] Stop the first build at Level 3 and leave future Level 4+ expansion as inactive structure only.
 - [ ] Let players explore Tower floors or viewing areas even when higher gates are locked.
 - [ ] Make locked gates visually locked, physically blocked, and server-validated.
-- [ ] Add placeholder elevator stop parts such as `LobbyTowerElevatorStop_Level1`, `LobbyTowerElevatorStop_Level2`, and `LobbyTowerElevatorStop_Level3` if an elevator is used.
+- [ ] Add elevator stop parts by hand only if an elevator or climb-stop route is chosen. The starter code must not auto-create the old `ElevatorStops` helper folder, `LobbyTowerElevatorStop_Level1`, `LobbyTowerElevatorStop_Level2`, or `LobbyTowerElevatorStop_Level3`.
 
 Validation:
 - [ ] Level 4+ cannot be reached or requested in the first build.
@@ -174,13 +228,17 @@ Goal: a solo or separated trivia path challenges players without letting them co
 - [ ] Place answer paths, quiz doors, or another approved dungeon answer route for each checkpoint and label them clearly for testing.
 - [ ] Place reset zones and kill zones named clearly, such as `DungeonResetZone_001` or `DungeonKillZone_001`.
 - [ ] Place coin pickup locations on correct paths without encouraging accidental wrong turns.
+- [ ] Plan answer coins/pickups per question: wrong coin fails/resets the player, shows a clear UI message with the correct answer, and is removed for that player's next attempt; correct coin claims the once-per-question daily reward, deletes/hides wrong coins for that player, and opens the next path.
+- [ ] Plan question rewards as once-per-question-per-UTC-daily-reset pickups and completion rewards as once-per-level-per-UTC-daily-reset rewards; claimed question rewards, solved-question state, and wrong-coin-removal state should persist for that player until the next daily reset.
 - [ ] Separate players enough that one player cannot easily follow another player's correct route.
+- [ ] Plan the UTC daily Dungeon reset and post-clear Battlepass finisher layer: active solvers stay invisible/no-chat, Battlepass daily finishers automatically see and chat only with same-level Battlepass daily finishers in the whole Dungeon, Battlepass players have no Dungeon cooldown, and finisher access must be earned again after each reset.
 - [ ] Add anti-skip walls, ceilings, route bends, or distance breaks where jumping or camera peeking could reveal answers.
 - [ ] Add a clear return route after failure or completion.
 
 Validation:
 - [ ] Wrong answers reset, damage, or fail the player without trapping them in a loop.
-- [ ] Correct routes reward the player clearly and continue the path smoothly.
+- [ ] Wrong-answer routes reveal the correct answer clearly before or during the reset, explain that the next attempt for that question will show only the correct coin/path, and keep the feedback readable on mobile and desktop.
+- [ ] Correct routes reward the player clearly, delete/hide wrong-answer coins for that player, continue the path smoothly, and do not re-award already claimed daily question rewards or already claimed daily level completion rewards.
 - [ ] Players cannot skip questions by jumping, wall-hopping, clipping, falling, or watching another route.
 
 ### 17.9 Group Stages And Community Spaces
@@ -259,7 +317,7 @@ Run this review after each playable area is blocked out and again after major de
 - [ ] Players cannot touch portals or gates they have not unlocked by jumping around barriers.
 - [ ] Players cannot enter Arena, Dungeon, Group, or up-level test spaces through gaps, clipping spots, or one-way geometry mistakes.
 - [ ] Players cannot stand behind question screens or trigger zones to break interactions.
-- [ ] Players cannot skip Dungeon questions or view another player's correct route.
+- [ ] Players cannot skip Dungeon questions or view another player's correct route while actively solving. Post-clear Battlepass finisher visibility must not reveal active non-finishers.
 - [ ] Group stage placement cannot block important paths, spawns, portals, exits, or reset routes.
 - [ ] Kill zones and reset zones cannot repeatedly trap a player.
 - [ ] Spawn points do not place players inside collision, under the map, facing away from the main route, or inside another player's likely path.
@@ -303,15 +361,18 @@ startup systems are being connected.
 - [x] Confirmed Done: Add a shared `PlaceConfig` module that maps real Roblox place IDs to broad place roles.
 - [x] Confirmed Done: Add a server `PlaceBootstrap` module that starts the correct place-specific module.
 - [x] Confirmed Done: Update Rojo config so `src/places` syncs into `ServerScriptService > PlaceScripts`.
+- [x] Confirmed Done: Disable lobby Workspace scaffolding so the lobby startup code does not auto-create generated map entities.
 - [ ] Replace every placeholder `0` in `TowerConfig.PlaceIds` with real Roblox place IDs from the Brain Brawl universe.
 - [ ] Decide whether to add Rojo `servePlaceIds` after real place IDs exist, so syncing into the wrong Studio place is harder.
 - [ ] Open each real Roblox place in Studio, connect Rojo, and confirm the correct starter module prints in Output.
-- [ ] Move any Studio-only GUI behavior scripts, such as Play button or Tower teleport LocalScripts under `StarterGui`, into VS Code client controllers under `src/client`; keep the Studio GUI objects as visual layout unless `StarterGui` is intentionally added to `default.project.json`.
+- [ ] Move any Studio-only GUI behavior scripts, such as Play button or Tower teleport LocalScripts under `StarterGui`, into VS Code client controllers under `src/client`; keep the Studio GUI objects as visual layout unless `StarterGui` is intentionally added to `default.project.json`. Do not auto-create fallback Play button UI from code, because it causes duplicate Play buttons when the builder already made the real UI.
 - [ ] Move lobby Play-menu routing from the general `Main.server.luau` script into a lobby-specific service once the first lobby systems are stable.
 - [ ] Add real Tower Level startup logic for Arena, Dungeon Teleport, Spawn & Level Teleport, and Community.
 - [ ] Add Tower Area launch pad server logic that validates the player's highest unlocked Tower level, then starts the controlled launch to the matching landing.
-- [ ] Add sprint stamina config and runtime logic once the owner decides exactly how players earn extra stamina and what values each progression step uses.
-- [ ] Add real Dungeon startup logic for solo runs, question checkpoints, coin resets, cooldowns, and anti-copy rules.
+- [ ] Add sprint stamina config and runtime logic using XP milestones once the exact milestone thresholds and stamina values are confirmed.
+- [ ] Make sprint a toggle controlled by Shift and by a visible GUI button; the button should highlight while sprint is requested/active and turn off automatically when stamina runs out or the player clicks it again.
+- [ ] Add a Progression UI that shows the player's current progression level and the stamina reward tied to that progress.
+- [ ] Add real Dungeon startup logic for solo runs, UTC daily question reset, question checkpoints, per-question reward claim tracking, wrong-answer coin removal, clear correct-answer UI reveal, solved-question state, per-level completion reward claim tracking, coin resets, normal-player cooldowns, one-time current failed-run cooldown skip purchases, Battlepass no-cooldown access, anti-copy rules, post-clear same-level Battlepass finisher visibility across the whole Dungeon, and finisher-only chat.
 - [ ] Add real Up-Level Test startup logic for the boss fight, health bars, timed questions, pass/fail saving, and teleport return handling.
 - [ ] Document the final Studio/VS Code workflow for editing one code directory while opening one Roblox place at a time.
 

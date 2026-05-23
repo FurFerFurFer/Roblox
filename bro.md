@@ -5,7 +5,7 @@
 - **Genre:** Quiz / Trivia + Obby hybrid
 - **Target Audience:** General Roblox players, casual to competitive
 - **Core Loop:** Spawn in the lobby, choose a portal, earn XP through gameplay, and unlock higher Tower levels as progression milestones
-- **Monetization Strategy:** Developer Products (buy cooldown skip for dungeon mode), possibly Game Passes
+- **Monetization Strategy:** Developer Products (buy cooldown skip for normal Dungeon players), plus a Battlepass Game Pass for social/private activity perks, no-cooldown Dungeon access, and post-clear Dungeon finisher visibility/chat
 
 ---
 
@@ -23,16 +23,18 @@
 | Mechanic | Description | Priority (High/Med/Low) |
 |---|---|---|
 | Select-answer trivia | Players pick from multiple choice answers in the player UI; first correct answer scores a point when the mode is in a scored state (Arena, 1v1, Group). Arena and Group do not use physical answer pads. | High |
-| Dungeon path-picking | Correct answer path = collect coin and advance; wrong path = lose coins + full dungeon reset | High |
-| Dungeon reset | Kill the player on wrong answer, respawn at dungeon start, reset all coins in the dungeon | High |
+| Dungeon path-picking | Answer choices can be represented by answer coins/pickups. Correct coin = claim that question's once-per-daily reward, delete/hide wrong coins for that player, and open the path forward; wrong coin = fail/reset, reveal the correct answer in UI, and remove that wrong coin from the player's next attempt so only the correct coin remains for that question. | High |
+| Dungeon reset | Kill the player on wrong answer and respawn at dungeon start. Already claimed, solved, or wrong-answer-removed question states do not reset for that player until the next UTC daily reset. | High |
 | Anti-copy (Dungeon) | No chat, players invisible to each other so no one can follow the correct path | High |
-| Dungeon cooldown | On dungeon fail, player must wait 5 minutes before retrying, or pay currency to skip the wait | Med |
+| Daily Dungeon reset | Dungeon questions/routes reset automatically every day at UTC midnight so route knowledge expires and players get a fresh daily challenge. | High |
+| Battlepass Dungeon finisher layer | Battlepass players who finish all questions in the current daily set for a Dungeon level automatically gain whole-Dungeon visibility/chat for that level with other Battlepass daily finishers. No invite is needed. Access resets at UTC midnight and must be earned again after the daily reset. Non-finishers and normal players remain invisible and cannot use Dungeon chat. | Med |
+| Dungeon cooldown | On dungeon fail, normal players must wait 5 minutes before retrying, buy a one-time skip for the current failed-run cooldown, or buy Battlepass for no-cooldown Dungeon access. Battlepass players have no Dungeon cooldown. | Med |
 | Lobby portal hub | Players first spawn in the home/lobby base with mode portals, a Play button for direct Tower level entry, and access to a separate Tower area | High |
 | Home Playground | A place next to the lobby for optional activities; the first supported activity is Group mode stages | High |
 | Tower XP unlocks | Tower levels are separate server/place destinations; XP qualifies the player for an up-level test, and passing that test unlocks the next level | High |
 | Tower Area gates | The Tower physically appears in its own Tower Area as a visual progression landmark and teleport-gate structure; players can climb or ride upward anywhere, but each level gate stays locked until the player's current/highest level allows entry | High |
 | Highest-level launch pad | A Tower Area launch pad uses a controlled launch animation to send a player toward their server-validated highest unlocked Tower level, reducing repeated climb time while still letting the physical Tower show progression | Med |
-| Progression sprint stamina | Extra sprint stamina applies everywhere as the preferred movement progression reward instead of raw speed boosts; exact earning rule and values are still undecided | Med |
+| Progression sprint stamina | Extra sprint stamina applies everywhere as the preferred movement progression reward instead of raw speed boosts; bigger stamina is earned through XP milestones, while exact milestone thresholds, stamina values, drain rate, and recharge rate are still undecided | Med |
 | Tower Play button | A lobby Play button lets players choose a Tower level directly, using the same server-side current/highest level check as physical Tower gates | High |
 | Tower level server format | Every Tower level server uses the same four-area layout: Arena, Dungeon Teleport, Spawn & Level Teleport, and Community | High |
 | Up-level boss test server | The up-level test is a separate solo server with boss-fight trivia gameplay: a boss, problem board, timer, boss health bar, and player health bar | High |
@@ -48,7 +50,7 @@
 - **XP / Leveling System:** Players collect XP by answering correctly and completing runs. XP is used as a requirement check for an up-level test, not as the final unlock by itself.
 - **Currency:** Coins — earned by scoring in trivia modes and collected physically in Dungeon mode
 - **Unlockables:** Tower levels unlock after the player reaches the required XP for the next level and passes the up-level test. Level 1 is unlocked by default; Level 2 requires S2 XP plus the Level 1 up-level test; Level 3 requires S3 XP plus the Level 2 up-level test.
-- **Sprint Stamina:** Players can gain extra sprint stamina as a progression reward. The stamina benefit applies everywhere, but the exact earning rule, stamina values, drain rate, and recharge rate are still open decisions.
+- **Sprint Stamina:** Players gain bigger sprint stamina through XP milestones. Sprint is toggled on/off with Shift or by clicking a visible sprint GUI button. The button highlights while sprint is requested/active, then turns off automatically when stamina runs out or when the player clicks it again. The stamina benefit applies everywhere, but the exact milestone thresholds, stamina values, drain rate, and recharge rate are still open decisions.
 - **XP Cap Rule:** When a player reaches the XP requirement for their next up-level test, they stop gaining more XP until they pass that test and unlock the next Tower level.
 - **Replayability Hooks:** Dungeon completion (high-stakes, one long run), competitive scoring in Arena/1v1/Group
 
@@ -59,7 +61,7 @@
 | Quickmatch | Fast Play-menu option that sends the player toward the default public trivia match flow. Prototype routing notes live in [notes.md](notes.md). | 1+ |
 | 1v1 | Same as Arena but only two players dueling each other | 2 |
 | Group | Free-for-all trivia like Arena; players can create a physical group stage with the problem shown on stage and chairs for attendants. When players walk near a stage, they see the host-created stage name and the question type label, formatted as `Level X - Topic`. Normal players can create public stages only in unlocked Tower Community zones. Battlepass players can create stages in Tower Community zones or the home Playground, and may switch the activity from public to invite-only. | 3+ |
-| Dungeon | Solo obby with ~50 questions; each question is a branching path; pick correct path to collect a coin and advance; wrong path = lose coins + full reset to dungeon start; players are invisible to each other, no chat; failed run = 5 min cooldown or pay to skip | Solo |
+| Dungeon | Solo obby with ~50 daily-reset questions; each question is a branching path with answer coins/pickups. Pick the correct coin to claim that question's once-per-daily-reset reward, delete/hide wrong coins for that player, and open the next path. Pick a wrong coin to fail/reset, show a clear UI message with the correct answer, and remove that wrong coin from the player's next attempt so only the correct coin remains for that question. Dungeon level completion rewards are also once per level per daily reset. During active solving, players are invisible to each other and cannot chat. Normal players get a 5-minute failure cooldown, can buy a one-time skip for the current failed-run cooldown, or can buy Battlepass for no-cooldown Dungeon access. Battlepass players have no Dungeon cooldown. After finishing all questions in one Dungeon level's current daily set, Battlepass players automatically gain whole-Dungeon visibility/chat for that level with other Battlepass daily finishers until the next UTC reset. | Solo, with post-clear Battlepass finisher social layer |
 | Up-Level Test | Boss-fight trivia in a separate server; only one player plays, answering timed problems to damage the boss before their own health bar is depleted | Solo |
 
 ### 3.4 Lobby & Tower Flow
@@ -212,7 +214,7 @@ Do not add `AnswerPad_A`, `AnswerPad_B`, `AnswerPad_C`, or `AnswerPad_D` to Aren
 ---
 
 ## 6. UI / UX
-- **HUD Elements:** (player health bar, boss health bar, currency, timer, minimap)
+- **HUD Elements:** player health bar, boss health bar, currency, timer, minimap, sprint stamina meter, and Progression UI showing the player's current progression level plus the stamina reward tied to that progress
 - **Menus Required:** (main menu, settings, shop, inventory, leaderboard)
 - **Mobile Compatibility:** (yes / no / partial)
 - **Accessibility Considerations:**
@@ -236,6 +238,7 @@ Do not add `AnswerPad_A`, `AnswerPad_B`, `AnswerPad_C`, or `AnswerPad_D` to Aren
 - [ ] Tower Arena shared visibility/projection broadcaster
 - [ ] Tower Arena gate prompt, join queue, spectator state, intermission loop, and exit handler
 - [ ] Tower Arena solo-practice rule, fresh scored-session reset, answer scoring, and top-5 session leaderboard
+- [ ] Dungeon daily question reset, Battlepass no-cooldown rule, post-clear Battlepass finisher visibility, and finisher-only chat access
 - [ ] Up-level boss fight test handler
 - [ ] XP cap / pause system
 - [ ] Community house buy/rent system
@@ -249,7 +252,9 @@ Do not add `AnswerPad_A`, `AnswerPad_B`, `AnswerPad_C`, or `AnswerPad_D` to Aren
 - [ ] UI controllers
 - [ ] Camera behavior
 - [ ] Controlled launch camera and movement presentation
-- [ ] Sprint stamina input, meter, drain, and recharge presentation
+- [ ] Sprint stamina toggle input, GUI button highlight, meter, drain, and recharge presentation
+- [ ] Progression UI that shows the player's current progression level and the stamina reward tied to that progress
+- [ ] Dungeon daily progress display, Battlepass finisher visibility/chat state, and clear messaging for cooldown or no-cooldown status
 - [ ] Visual effects (particles, tweens)
 
 ### 7.3 Shared (ModuleScript)
@@ -257,7 +262,7 @@ Do not add `AnswerPad_A`, `AnswerPad_B`, `AnswerPad_C`, or `AnswerPad_D` to Aren
 - [ ] Utility functions
 - [ ] Remotes manifest
 - [ ] Tower XP threshold config and level-to-destination mapping that can extend past Level 3 later
-- [ ] Sprint stamina config after the earning rule and values are confirmed
+- [ ] Sprint stamina config for XP milestones after the exact milestone thresholds and stamina values are confirmed
 
 ### 7.4 Remote Events & Functions
 | Name | Type (Event/Function) | Fired By | Handled By | Purpose |
@@ -302,6 +307,10 @@ Do not add `AnswerPad_A`, `AnswerPad_B`, `AnswerPad_C`, or `AnswerPad_D` to Aren
 | GroupStagePrivacyChanged | Event | Server | Client | Tell the host that their public/invite-only stage setting changed |
 | GroupStageSpectateStarted | Event | Server | Client | Tell one player to render the selected Group activity visuals |
 | GroupStageSpectateEnded | Event | Server | Client | Tell one player to hide the selected Group activity visuals |
+| DungeonDailyStateChanged | Event | Server | Client | Sync the current UTC daily Dungeon version, per-level completion/reward state, per-question reward/solved/wrong-coin-removal state, cooldown state, and Battlepass no-cooldown status |
+| DungeonCorrectAnswerRevealed | Event | Server | Client | Clearly tell the player they picked a wrong-answer Dungeon coin, show the correct answer, and explain that only the correct coin/path will remain on the next attempt |
+| DungeonFinisherLayerChanged | Event | Server | Client | Tell a Battlepass daily finisher which other same-level Battlepass finishers should be visible in the whole Dungeon |
+| DungeonFinisherChatChanged | Event | Server | Client | Enable or disable the finisher-only Dungeon chat channel for a Battlepass daily finisher |
 | GroupStageInfoShown | Event | Server | Client | Tell one nearby player to show the stage name and `Level X - Topic` question type |
 | GroupStageInfoHidden | Event | Server | Client | Tell one player to hide nearby stage info after they walk away |
 | UpLevelBossFightStarted | Event | Server | Client | Tell the client the solo up-level boss fight has begun |
@@ -314,8 +323,8 @@ Do not add `AnswerPad_A`, `AnswerPad_B`, `AnswerPad_C`, or `AnswerPad_D` to Aren
 
 ## 8. Data & Persistence
 - **DataStore Keys:** `PlayerProgress_v1:{UserId}`
-- **Saved Player Data:** coins, total XP, highest unlocked Tower level, passed up-level tests, Battlepass ownership/entitlement, owned/rented houses, settings, inventory
-- **Session Data (not saved):** current mode run, active Arena projection state, active Arena roster, queued Arena spectators, Arena intermission countdown, Arena per-session top-5 leaderboard, dungeon run state, active Community group stages, active Playground group stages, per-player group spectate opt-ins, portal touch debounce
+- **Saved Player Data:** coins, total XP, highest unlocked Tower level, passed up-level tests, Battlepass ownership/entitlement, per-level daily Dungeon completion/reward claim state, per-question daily Dungeon reward claim/wrong-answer-removal state, owned/rented houses, settings, inventory
+- **Session Data (not saved):** current mode run, active Arena projection state, active Arena roster, queued Arena spectators, Arena intermission countdown, Arena per-session top-5 leaderboard, dungeon run state, active daily Dungeon version, active Dungeon finisher layer visibility/chat state, active Community group stages, active Playground group stages, per-player group spectate opt-ins, portal touch debounce
 - **Data Migration Plan:** Deferred; track the live schema migration decision in [notes.md](notes.md).
 
 ---
@@ -323,11 +332,11 @@ Do not add `AnswerPad_A`, `AnswerPad_B`, `AnswerPad_C`, or `AnswerPad_D` to Aren
 ## 9. Monetization Details
 | Product | Type | Robux Price | What It Gives |
 |---|---|---|---|
-| Dungeon Cooldown Skip | Developer Product | Deferred | Skip the 5-minute wait after a failed dungeon run |
-| Battlepass | Game Pass | Deferred | Create Group stages in the Playground and make Group stages invite-only |
+| Dungeon Cooldown Skip | Developer Product | Deferred | Skip only the current failed-run cooldown once for a normal player |
+| Battlepass | Game Pass | Deferred | Create Group stages in the Playground, make Group stages invite-only, remove Dungeon cooldown, and unlock post-clear Dungeon finisher visibility/chat with other Battlepass daily finishers |
 
 - **VIP Server support:** Deferred; track the decision in [notes.md](notes.md).
-- **Free-to-play friendly:** Yes — cooldown skip is convenience only
+- **Free-to-play friendly:** Yes — normal players can still complete Dungeon; paid perks reduce retry friction and add post-clear social visibility/chat.
 
 ---
 
@@ -642,7 +651,7 @@ Moved to [notes.md](notes.md).
 
 ## 17. To Do List
 
-Moved to [To-Do.md](To-Do.md).
+Moved to [To-Do.md](To-Do.md), starting with the daily coding and Rojo routine.
 
 ---
 

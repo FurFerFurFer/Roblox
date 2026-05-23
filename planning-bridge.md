@@ -16,9 +16,9 @@ project should be able to see these planning files without copying them:
 - `To-Do.md`
 - `bro.luau`
 
-This keeps `bro.md`, `notes.md`, `To-Do.md`, and `bro.luau` as the source of
-truth while still letting Claude, Codex, and other LLM tools read the plan from
-the active project.
+This keeps `bro.md`, `notes.md`, `To-Do.md`, and `bro.luau` as the active
+source of truth while still letting Claude, Codex, and other LLM tools read the
+plan from the active project.
 
 ## Recommended Setup
 
@@ -75,7 +75,7 @@ Before answering prompts or changing Brain Brawl logic, read:
 - `_brain_brawl_planning/README.md`
 - `_brain_brawl_planning/bro.md`
 - `_brain_brawl_planning/notes.md`
-- `_brain_brawl_planning/To-Do.md`
+- `_brain_brawl_planning/To-Do.md`, starting with its start-of-coding routine
 - `_brain_brawl_planning/bro.luau`
 
 Treat those files as planning and Luau draft artifacts, not as the final Roblox
@@ -97,7 +97,6 @@ When the real MCP server exists, it should expose this directory as read/write
 planning resources first:
 
 - `brain-brawl://agents`
-- `brain-brawl://workflow`
 - `brain-brawl://design`
 - `brain-brawl://notes`
 - `brain-brawl://to-do`

@@ -27,7 +27,7 @@ conflict, AGENTS.md wins.
 | `README.md` | Human-facing workflow overview |
 | `bro.md` | Living game design plan |
 | `notes.md` | Open questions, reminders, unfinished ideas, and deferred decisions |
-| `To-Do.md` | Builder task guide, map checklist, testing routine, and handoff checklist |
+| `To-Do.md` | Start-of-coding routine, builder task guide, map checklist, testing routine, and handoff checklist |
 | `bro.luau` | Luau implementation draft with one labeled block per function |
 | `planning-bridge.md` | Cross-workspace access design for VS Code and LLM tools |
 | `tools/link-planning.sh` | Helper that links this planning directory into another project |

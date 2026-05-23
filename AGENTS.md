@@ -28,6 +28,13 @@ directory through an MCP server. Until that exists, keep updates focused on the
 planning files here and avoid assuming live project assets or Studio structure
 exist in this directory.
 
+## Start-of-Coding Routine
+
+Before starting coding work, script sync work, Rojo troubleshooting, or Roblox
+Studio handoff steps, read the first section of `To-Do.md` and follow the
+start-every-coding-session routine there. Treat that section as the canonical
+daily coding and Rojo workflow.
+
 ## Project Concept Review
 
 Whenever the user explains a new project concept, game idea, or mechanic:
@@ -43,6 +50,14 @@ technical constraint, exploit concern, critique to revisit, accepted suggestion,
 deferred question, and implementation decision in the correct planning file. Do
 this even when the user does not explicitly ask to update the files.
 
+When a feature, rule, mechanic, or workflow decision is clearly confirmed and is
+implementation-relevant, also update `bro.luau` as a Luau-facing reference draft
+for the future real project. Keep `bro.luau` aligned with `bro.md` and
+`notes.md`: use clearly labeled blocks, describe behavior in code-shaped terms,
+and do not leave superseded behavior in the draft. Do not add uncertain/open
+ideas to `bro.luau` as if they are final; keep those in `notes.md` until the
+owner confirms them.
+
 Use clear status labels so notes do not imply more certainty than the user gave:
 mark approved decisions as confirmed, unresolved topics as open questions, and
 early or debated ideas as notes/ideas to revisit. If important design choices
@@ -55,8 +70,8 @@ implementing.
 - `bro.md` is the living game design plan for Brain Brawl.
 - `notes.md` is the central home for open questions, reminder notes,
   unfinished ideas, deferred decisions, and loose planning notes.
-- `To-Do.md` is the builder task guide and checklist extracted from topic 17 of
-  `bro.md`.
+- `To-Do.md` is the start-of-coding routine, builder task guide, and checklist
+  extracted from topic 17 of `bro.md`.
 - `bro.luau` is the Luau implementation draft. Keep one separate labeled block per function.
 - `README.md` documents this workflow for the project owner.
 - `planning-bridge.md` documents how other VS Code workspaces and LLM tools can

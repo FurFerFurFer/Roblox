@@ -202,6 +202,17 @@ local arenaAnswerRemoteConnected = false
 local arenaExitRemoteConnected = false
 local towerLevelPlayRemoteConnected = false
 
+local DUNGEON_DAILY_STATE_REMOTE = "DungeonDailyStateChanged"
+local DUNGEON_CORRECT_ANSWER_REVEALED_REMOTE = "DungeonCorrectAnswerRevealed"
+local DUNGEON_FINISHER_LAYER_REMOTE = "DungeonFinisherLayerChanged"
+local DUNGEON_FINISHER_CHAT_REMOTE = "DungeonFinisherChatChanged"
+local DUNGEON_REMOTE_EVENTS = {
+	DUNGEON_DAILY_STATE_REMOTE,
+	DUNGEON_CORRECT_ANSWER_REVEALED_REMOTE,
+	DUNGEON_FINISHER_LAYER_REMOTE,
+	DUNGEON_FINISHER_CHAT_REMOTE,
+}
+
 local createGroupStage
 local joinGroupStage
 local setGroupStagePrivacy
@@ -4111,26 +4122,50 @@ end
 -- Each entry: { question, answers = { "A", "B", ... }, correct = "A" }
 -- ============================================================
 
+-- Confirmed Dungeon reference rules for the future real project:
+-- - Daily Dungeon version resets at UTC midnight.
+-- - Rewards are once per question per daily version.
+-- - Optional level completion reward is once per Dungeon level per daily version.
+-- - Wrong answer coin: fail/reset, reveal correct answer in UI, remove that wrong coin
+--   for this player/question until the next daily version.
+-- - Correct coin: claim reward if unclaimed, hide wrong coins for this player/question,
+--   mark the question solved, and open the path forward.
+-- - Normal player cooldown skip only clears the current failed-run cooldown once.
+-- - Battlepass players have no Dungeon cooldown.
+-- - Battlepass daily finishers gain same-level whole-Dungeon visibility/chat until reset.
+
+local DUNGEON_DAILY_RESET_TIMEZONE = "UTC"
+local DUNGEON_DAILY_RESET_HOUR = 0
+local DUNGEON_COOLDOWN_SECONDS = 300
+local DUNGEON_REWARD_STATE_UNCLAIMED = "Unclaimed"
+local DUNGEON_REWARD_STATE_CLAIMED = "Claimed"
+
 local DungeonQuestions = {
 	{
 		question = "What is 2 + 2?",
 		answers  = { "3", "4", "5", "6" },
 		correct  = "4",
+		id       = "Level1_Q001",
 	},
 	{
 		question = "What color is the sky?",
 		answers  = { "Red", "Blue", "Green", "Yellow" },
 		correct  = "Blue",
+		id       = "Level1_Q002",
 	},
 	{
 		question = "How many sides does a triangle have?",
 		answers  = { "2", "3", "4", "5" },
 		correct  = "3",
+		id       = "Level1_Q003",
 	},
 }
 
--- Tracks each player's current question index and spawned coin parts
-local dungeonState = {}  -- { [player] = { questionIndex, coins = {}, barrier = Part } }
+-- Tracks each player's current run state.
+-- Future DataStore shape should key daily progress by userId, dungeonLevel,
+-- UTC daily version, and question id.
+local dungeonState = {}  -- { [player] = { towerLevel, dailyVersion, questionIndex, coins = {}, barrier = Part } }
+local dungeonDailyProgress = {}  -- { [userId] = { [dailyVersion] = { [towerLevel] = { completed, completionRewardClaimed, questionRewards = {}, removedWrongAnswers = {}, solvedQuestions = {} } } } }
 
 -- forward declarations (defined later in this file)
 local onCoinTouched
@@ -4139,9 +4174,130 @@ local resetDungeon
 
 
 -- ============================================================
+-- [ DUNGEON DAILY VERSION ]
+-- Server-authoritative UTC daily key. A new key resets question rewards,
+-- wrong-answer removal, solved-question state, and Battlepass finisher access.
+-- ============================================================
+
+local function getDungeonDailyVersion()
+	return os.date("!%Y-%m-%d")
+end
+
+
+-- ============================================================
+-- [ DUNGEON QUESTION ID ]
+-- Stable question id for daily reward and wrong-answer-removal tracking.
+-- ============================================================
+
+local function getDungeonQuestionId(questionIndex)
+	local qData = DungeonQuestions[questionIndex]
+	if qData and qData.id then
+		return qData.id
+	end
+	return "Question_" .. tostring(questionIndex)
+end
+
+
+-- ============================================================
+-- [ DUNGEON LEVEL PROGRESS ]
+-- Gets the per-player, per-level, per-daily-version progress bucket.
+-- In the real project this shape should be loaded/saved through DataStore.
+-- ============================================================
+
+local function getDungeonLevelProgress(player, towerLevel, dailyVersion, createIfMissing)
+	local userId = player.UserId
+	local byPlayer = dungeonDailyProgress[userId]
+	if not byPlayer and createIfMissing then
+		byPlayer = {}
+		dungeonDailyProgress[userId] = byPlayer
+	end
+	if not byPlayer then return nil end
+
+	local byDay = byPlayer[dailyVersion]
+	if not byDay and createIfMissing then
+		byDay = {}
+		byPlayer[dailyVersion] = byDay
+	end
+	if not byDay then return nil end
+
+	local progress = byDay[towerLevel]
+	if not progress and createIfMissing then
+		progress = {
+			completed = false,
+			completionRewardClaimed = false,
+			questionRewards = {},
+			removedWrongAnswers = {},
+			solvedQuestions = {},
+		}
+		byDay[towerLevel] = progress
+	end
+	return progress
+end
+
+
+-- ============================================================
+-- [ DUNGEON WRONG ANSWER REMOVAL ]
+-- Tracks wrong coins removed for one player/question until UTC daily reset.
+-- ============================================================
+
+local function wasDungeonWrongAnswerRemoved(player, towerLevel, dailyVersion, questionId, answerText)
+	local progress = getDungeonLevelProgress(player, towerLevel, dailyVersion, false)
+	local removedForQuestion = progress and progress.removedWrongAnswers[questionId]
+	return removedForQuestion and removedForQuestion[answerText] == true
+end
+
+local function markDungeonWrongAnswerRemoved(player, towerLevel, dailyVersion, questionId, answerText)
+	local progress = getDungeonLevelProgress(player, towerLevel, dailyVersion, true)
+	progress.removedWrongAnswers[questionId] = progress.removedWrongAnswers[questionId] or {}
+	progress.removedWrongAnswers[questionId][answerText] = true
+end
+
+
+-- ============================================================
+-- [ DUNGEON QUESTION REWARD CLAIM ]
+-- Rewards are once per question per UTC daily version.
+-- ============================================================
+
+local function hasClaimedDungeonQuestionReward(player, towerLevel, dailyVersion, questionId)
+	local progress = getDungeonLevelProgress(player, towerLevel, dailyVersion, false)
+	return progress and progress.questionRewards[questionId] == DUNGEON_REWARD_STATE_CLAIMED
+end
+
+local function markDungeonQuestionRewardClaimed(player, towerLevel, dailyVersion, questionId)
+	local progress = getDungeonLevelProgress(player, towerLevel, dailyVersion, true)
+	progress.questionRewards[questionId] = DUNGEON_REWARD_STATE_CLAIMED
+end
+
+
+-- ============================================================
+-- [ DUNGEON SOLVED QUESTION STATE ]
+-- Solved questions hide wrong coins and allow the path to open.
+-- ============================================================
+
+local function markDungeonQuestionSolved(player, towerLevel, dailyVersion, questionId)
+	local progress = getDungeonLevelProgress(player, towerLevel, dailyVersion, true)
+	progress.solvedQuestions[questionId] = true
+end
+
+
+-- ============================================================
+-- [ DUNGEON CORRECT ANSWER REVEAL ]
+-- Clear UI feedback after a wrong coin: wrong, correct answer, next-attempt rule.
+-- ============================================================
+
+local function revealDungeonCorrectAnswer(player, questionId, correctAnswer)
+	firePlayerRemoteEvent(player, DUNGEON_CORRECT_ANSWER_REVEALED_REMOTE, {
+		questionId = questionId,
+		correctAnswer = correctAnswer,
+		message = "Wrong. Correct answer: " .. tostring(correctAnswer) .. ". Next attempt shows only the correct coin.",
+	})
+end
+
+
+-- ============================================================
 -- [ SPAWN ANSWER COINS ]
--- Creates one gold coin Part per answer option in front of the barrier.
--- Each coin gets a BillboardGui label and stores its answer value.
+-- Creates answer coin Parts in front of the barrier. Removed wrong coins stay
+-- hidden for this player/question until the next UTC daily version.
 -- ============================================================
 
 local COIN_SPACING       = 4
@@ -4152,12 +4308,22 @@ local function spawnAnswerCoins(player, questionIndex, barrierPart)
 	local qData = DungeonQuestions[questionIndex]
 	if not qData then return {} end
 
+	local state = dungeonState[player] or {}
+	local towerLevel = state.towerLevel or DEFAULT_UNLOCKED_TOWER_LEVEL
+	local dailyVersion = state.dailyVersion or getDungeonDailyVersion()
+	local questionId = getDungeonQuestionId(questionIndex)
 	local coins      = {}
 	local numAnswers = #qData.answers
 	local origin     = barrierPart.Position + barrierPart.CFrame.LookVector * 6
 	local startPos   = origin - Vector3.new((numAnswers - 1) * COIN_SPACING / 2, 0, 0)
 
 	for i, answerText in ipairs(qData.answers) do
+		local isCorrect = answerText == qData.correct
+		local shouldSpawn = isCorrect or not wasDungeonWrongAnswerRemoved(player, towerLevel, dailyVersion, questionId, answerText)
+		if not shouldSpawn then
+			continue
+		end
+
 		local coin        = Instance.new("Part")
 		coin.Name         = "AnswerCoin_" .. i
 		coin.Size         = Vector3.new(1.5, 1.5, 0.3)
@@ -4168,7 +4334,10 @@ local function spawnAnswerCoins(player, questionIndex, barrierPart)
 		coin.CanCollide   = false
 		coin.Position     = startPos + Vector3.new((i - 1) * COIN_SPACING, 1.5, 0)
 		coin:SetAttribute("AnswerValue", answerText)
-		coin:SetAttribute("IsCorrect",   answerText == qData.correct)
+		coin:SetAttribute("QuestionId", questionId)
+		coin:SetAttribute("TowerLevel", towerLevel)
+		coin:SetAttribute("DailyVersion", dailyVersion)
+		coin:SetAttribute("IsCorrect", isCorrect)
 		coin.Parent       = workspace
 
 		local gui           = Instance.new("BillboardGui", coin)
@@ -4200,8 +4369,8 @@ end
 
 -- ============================================================
 -- [ ON COIN TOUCHED ]
--- Correct coin → glow, open barrier, advance to next question.
--- Wrong coin   → clear coins, reset the dungeon run.
+-- Correct coin -> claim once-per-daily reward, hide wrong coins, open path.
+-- Wrong coin -> reveal correct answer, remove that wrong coin next attempt, reset.
 -- ============================================================
 
 local function clearCoins(coins)
@@ -4219,8 +4388,19 @@ onCoinTouched = function(player, coin)
 	local state = dungeonState[player]
 	if not state then return end
 
+	local towerLevel = state.towerLevel or DEFAULT_UNLOCKED_TOWER_LEVEL
+	local dailyVersion = state.dailyVersion or getDungeonDailyVersion()
+	local questionId = coin:GetAttribute("QuestionId") or getDungeonQuestionId(state.questionIndex)
+	local answerText = coin:GetAttribute("AnswerValue")
+	local qData = DungeonQuestions[state.questionIndex]
+
 	if coin:GetAttribute("IsCorrect") then
 		coin.BrickColor = COIN_COLOR_CORRECT
+		if not hasClaimedDungeonQuestionReward(player, towerLevel, dailyVersion, questionId) then
+			markDungeonQuestionRewardClaimed(player, towerLevel, dailyVersion, questionId)
+			-- award this question's coin/currency here in the real project
+		end
+		markDungeonQuestionSolved(player, towerLevel, dailyVersion, questionId)
 		task.wait(0.35)
 		clearCoins(state.coins)
 		openBarrier(state.barrier)
@@ -4231,6 +4411,10 @@ onCoinTouched = function(player, coin)
 		end
 		-- next call to startDungeonQuestion happens when player reaches the next barrier trigger
 	else
+		markDungeonWrongAnswerRemoved(player, towerLevel, dailyVersion, questionId, answerText)
+		if qData then
+			revealDungeonCorrectAnswer(player, questionId, qData.correct)
+		end
 		clearCoins(state.coins)
 		resetDungeon(player)
 	end
@@ -4243,12 +4427,19 @@ end
 -- barrierPart is the Part blocking the path for this question.
 -- ============================================================
 
-local function startDungeonQuestion(player, barrierPart)
+local function startDungeonQuestion(player, barrierPart, context)
+	context = context or {}
 	if not dungeonState[player] then
-		dungeonState[player] = { questionIndex = 1 }
+		dungeonState[player] = {
+			questionIndex = 1,
+			towerLevel = context.towerLevel or barrierPart:GetAttribute("TowerLevel") or DEFAULT_UNLOCKED_TOWER_LEVEL,
+			dailyVersion = getDungeonDailyVersion(),
+		}
 	end
 	local state   = dungeonState[player]
 	state.barrier = barrierPart
+	state.dailyVersion = state.dailyVersion or getDungeonDailyVersion()
+	state.towerLevel = state.towerLevel or context.towerLevel or barrierPart:GetAttribute("TowerLevel") or DEFAULT_UNLOCKED_TOWER_LEVEL
 
 	local qData = DungeonQuestions[state.questionIndex]
 	if not qData then
@@ -4281,9 +4472,30 @@ end
 -- ============================================================
 
 onDungeonComplete = function(player)
+	local state = dungeonState[player]
+	local towerLevel = (state and state.towerLevel) or DEFAULT_UNLOCKED_TOWER_LEVEL
+	local dailyVersion = (state and state.dailyVersion) or getDungeonDailyVersion()
+	local progress = getDungeonLevelProgress(player, towerLevel, dailyVersion, true)
+
 	dungeonState[player] = nil
-	awardExperience(player, XP_REWARDS.DungeonComplete)
-	-- reward player, show victory UI, etc.
+	progress.completed = true
+	if not progress.completionRewardClaimed then
+		progress.completionRewardClaimed = true
+		awardExperience(player, XP_REWARDS.DungeonComplete)
+	end
+
+	if playerHasBattlepass(player) then
+		firePlayerRemoteEvent(player, DUNGEON_FINISHER_LAYER_REMOTE, {
+			towerLevel = towerLevel,
+			dailyVersion = dailyVersion,
+			enabled = true,
+		})
+		firePlayerRemoteEvent(player, DUNGEON_FINISHER_CHAT_REMOTE, {
+			towerLevel = towerLevel,
+			dailyVersion = dailyVersion,
+			enabled = true,
+		})
+	end
 end
 
 
@@ -4297,18 +4509,23 @@ local function collectCoin(player, coinData)
 	-- remove the coin object from the dungeon
 end
 
+local startCooldown
+
 
 -- ============================================================
 -- [ DUNGEON RESET ]
--- Kills the player, respawns them at the dungeon start, and wipes
--- all coins they collected during this run.
+-- Kills/resets the player after a wrong answer. Daily question state stays:
+-- wrong-answer coin removal, solved questions, and claimed rewards persist
+-- until UTC midnight.
 -- ============================================================
 
-resetDungeon = function(_)
+resetDungeon = function(player)
 	-- kill the player (humanoid health to 0)
 	-- teleport to dungeon spawn point
-	-- clear all coins the player collected this run
-	-- start the cooldown timer
+	-- do not wipe per-question daily progress here
+	if not playerHasBattlepass(player) then
+		startCooldown(player)
+	end
 end
 
 
@@ -4320,10 +4537,12 @@ end
 
 local cooldowns = {}  -- { [player] = os.time() of when cooldown ends }
 
-local COOLDOWN_SECONDS = 300  -- 5 minutes
-
-local function startCooldown(player)
-	cooldowns[player] = os.time() + COOLDOWN_SECONDS
+startCooldown = function(player)
+	if playerHasBattlepass(player) then
+		cooldowns[player] = nil
+		return
+	end
+	cooldowns[player] = os.time() + DUNGEON_COOLDOWN_SECONDS
 end
 
 local function isCoolingDown(player)
@@ -4336,21 +4555,26 @@ end
 
 -- ============================================================
 -- [ DUNGEON COOLDOWN SKIP (PAY TO SKIP) ]
--- Lets the player spend currency to immediately end their cooldown.
+-- One-time developer product behavior: clears only the current failed-run
+-- cooldown for a normal player. Battlepass players already have no cooldown.
 -- ============================================================
 
 local function skipCooldown(player)
-	-- verify player has enough currency
-	-- deduct the cost
-	-- clear cooldowns[player]
+	-- verify product receipt for this one cooldown skip
+	if playerHasBattlepass(player) then
+		cooldowns[player] = nil
+		return true
+	end
 	cooldowns[player] = nil
+	return true
 end
 
 
 -- ============================================================
 -- [ ANTI-COPY ENFORCEMENT (DUNGEON) ]
--- Hides all other players and disables chat while inside the dungeon
--- so no one can follow another player's correct path.
+-- Active Dungeon solvers cannot see/chat with other players. Battlepass players
+-- who completed this level's current daily version can see/chat only with
+-- same-level Battlepass daily finishers until the next UTC reset.
 -- ============================================================
 
 local function enforceDungeonAntiCopy(player)
