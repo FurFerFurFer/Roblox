@@ -52,15 +52,17 @@
 - **Unlockables:** Tower levels unlock after the player reaches the required XP for the next level and passes the up-level test. Level 1 is unlocked by default; Level 2 requires S2 XP plus the Level 1 up-level test; Level 3 requires S3 XP plus the Level 2 up-level test.
 - **Sprint Stamina:** Players gain bigger sprint stamina through XP milestones. Sprint is toggled on/off with Shift or by clicking a visible sprint GUI button. The button highlights while sprint is requested/active, then turns off automatically when stamina runs out or when the player clicks it again. The stamina benefit applies everywhere, but the exact milestone thresholds, stamina values, drain rate, and recharge rate are still open decisions.
 - **XP Cap Rule:** When a player reaches the XP requirement for their next up-level test, they stop gaining more XP until they pass that test and unlock the next Tower level.
+- **Competitive Reward Policy:** Session score and saved progression rewards are separate. Private/VIP, invite-only, and custom matches can show score and feedback, but they do not give competitive saved XP or coins. Lesson Mode rewards are separate one-time educational milestone rewards. The competitive saved reward priority is Arena public 4+ active players highest, cross-server random 1v1 Quickmatch next, and eligible public Group rooms at 20% of Arena rewards.
 - **Replayability Hooks:** Dungeon completion (high-stakes, one long run), competitive scoring in Arena/1v1/Group
 
 ### 3.3 Game Modes
 | Mode | Description | Players |
 |---|---|---|
-| Arena | Free-for-all trivia inside the player's unlocked Tower level. One player can play as practice, but score and XP only count when at least two active players are inside. Touching the Arena gate opens `Join the Arena?`; accepted players join during intermission, while mid-question joiners spectate and queue for the next intermission. Unlike Group, Arena is the one large shared activity area on each Tower level, so its activity and huge question projection are visible to everyone in that level server without requiring spectate. | 1+ practice, 2+ scored |
-| Quickmatch | Fast Play-menu option that sends the player toward the default public trivia match flow. Prototype routing notes live in [notes.md](notes.md). | 1+ |
-| 1v1 | Same as Arena but only two players dueling each other | 2 |
-| Group | Free-for-all trivia like Arena; players can create a physical group stage with the problem shown on stage and chairs for attendants. When players walk near a stage, they see the host-created stage name and the question type label, formatted as `Level X - Topic`. Normal players can create public stages only in unlocked Tower Community zones. Battlepass players can create stages in Tower Community zones or the home Playground, and may switch the activity from public to invite-only. | 3+ |
+| Arena | Free-for-all trivia inside the player's unlocked Tower level. One player can play as unscored solo practice inside Arena, and local session score can start with at least two active players, but saved XP/coin rewards require a public, non-private Arena room with at least four active eligible players. Touching the Arena gate opens `Join the Arena?`; accepted players join during intermission, while mid-question joiners spectate and queue for the next intermission. Unlike Group, Arena is the one large shared activity area on each Tower level, so its activity and huge question projection is visible to everyone in that level server without requiring spectate. | 1+ solo practice, 2+ local score, 4+ reward-eligible |
+| Lesson Mode | Personal learning mode shown as a popup/slide UI in the current server. A lesson is made of short slide-style explanations, examples, and milestone practice tests. Milestone tests grant small server-authorized, one-time XP/coin rewards plus lesson badges when passed, but repeated lesson attempts do not farm rewards. A free intro lesson/question is available to everyone from the Play menu. Level-specific lessons are available through the Play menu and from the player's house in that Tower level, only if the server confirms they own or rent an active house in that same Tower level. | 1 |
+| Quickmatch | Fast Play-menu option that sends the player toward the default public trivia match flow. Quickmatch is the required path for 1v1 because players must not choose their rewarded opponent. The first 1v1 Quickmatch prototype can pair players within the same Roblox server, but saved 1v1 rewards stay disabled until cross-server matchmaking sends matched players into server-owned reserved match servers. | 1+ |
+| 1v1 | Two-player duel trivia. Rewarded 1v1 is random Quickmatch only, and real saved 1v1 rewards require the cross-server matchmaking version. Same-server random 1v1 is a prototype path with local score only until that exists. Custom 1v1 matches can be created only by Battlepass players and give no saved XP or coins. Player-picked opponents, private/VIP servers, invite-only rooms, and custom matches can still show local score but are not progression-reward eligible. | 2 |
+| Group | Free-for-all trivia like Arena; players can create a physical group stage with the problem shown on stage and chairs for attendants. When players walk near a stage, they see the host-created stage name and the question type label, formatted as `Level X - Topic`. Normal players can create public stages only in unlocked Tower Community zones. Battlepass players can create stages in Tower Community zones or the home Playground, and may switch the activity from public to invite-only. Saved rewards require the same public-room style as Arena, at least four active eligible players, and any other match-quality checks; eligible Group rewards pay 20% of Arena rewards. Private or invite-only Group rooms give no saved rewards. | 3+ play, 4+ reward-eligible |
 | Dungeon | Solo obby with ~50 daily-reset questions; each question is a branching path with answer coins/pickups. Pick the correct coin to claim that question's once-per-daily-reset reward, delete/hide wrong coins for that player, and open the next path. Pick a wrong coin to fail/reset, show a clear UI message with the correct answer, and remove that wrong coin from the player's next attempt so only the correct coin remains for that question. Dungeon level completion rewards are also once per level per daily reset. During active solving, players are invisible to each other and cannot chat. Normal players get a 5-minute failure cooldown, can buy a one-time skip for the current failed-run cooldown, or can buy Battlepass for no-cooldown Dungeon access. Battlepass players have no Dungeon cooldown. After finishing all questions in one Dungeon level's current daily set, Battlepass players automatically gain whole-Dungeon visibility/chat for that level with other Battlepass daily finishers until the next UTC reset. | Solo, with post-clear Battlepass finisher social layer |
 | Up-Level Test | Boss-fight trivia in a separate server; only one player plays, answering timed problems to damage the boss before their own health bar is depleted | Solo |
 
@@ -72,7 +74,8 @@
 - The lobby contains portals for Arena, 1v1, and Dungeon. The Tower is a physical progression landmark and gate structure in the lobby rather than a separate hub server or gameplay interior.
 - Group activity creation happens from the Playground in the home server or from Community zones inside unlocked Tower levels.
 - Game mode portals send the player into the selected mode.
-- The Play button opens a small choice menu. The first choices are Tower and Quickmatch. Tower opens the Level 1, Level 2, and Level 3 selection buttons. Quickmatch sends the player toward the default public match flow.
+- The Play button opens a small choice menu. The first choices are Tower, Quickmatch, and Lesson Mode. Tower opens the Level 1, Level 2, and Level 3 selection buttons. Quickmatch sends the player toward the default public match flow. Lesson Mode always shows the free intro lesson/question, then shows level-specific lesson choices only for Tower levels where the server confirms the player owns or rents an active house.
+- Lesson Mode is also accessible from inside the player's house in that Tower level. House-launched lessons use that house's Tower level lesson and question set.
 - Players reach physical Tower gates by entering the Tower area, then using a traversal elevator or climbing route to move upward.
 - There is no elevator floor selector. The elevator/climb path is for movement and exploration; the Play button is the direct level-selection shortcut.
 - Higher Tower level gates are physically placed higher up the Tower so progression is visible and motivating.
@@ -81,6 +84,7 @@
 - Extra sprint stamina can apply everywhere as a progression reward instead of higher movement speed. The main current gameplay benefit is faster solo Dungeon completion, which is not directly competitive, but stamina scaling still needs to be balanced with Dungeon reward and progression pacing.
 - A Tower level gate teleports the player directly to that level's separate Tower level server only if that level is unlocked; the lobby Tower itself is not where Tower level gameplay happens.
 - Locked Tower gates should be physically and visually blocked. The server still performs the final unlock check, so exploiters cannot enter by clipping, spoofing remotes, or touching the gate from the wrong side.
+- In routing, UI, and gate checks, current/highest Tower level means the highest Tower level the server says the player can access from saved XP/progression state and passed up-level tests.
 - When the Play button's Tower choice is used, the selected Tower level must use the same server-side current/highest level validation as the physical Tower gates.
 - Each Tower level is a different server/place.
 - Inside a Tower level, the Spawn & Level Teleport area is the player's spawn area and can include a return portal back to the Lobby Base. Direct level-to-level travel should be secondary to the Tower gates and Play button.
@@ -133,6 +137,8 @@ Do not add `AnswerPad_A`, `AnswerPad_B`, `AnswerPad_C`, or `AnswerPad_D` to Aren
 
 `HousesArea` and `GroupStagesArea` are reserved areas. They should show where houses and Group stages can be placed, but the actual house or stage objects should only exist after a player adds, buys, rents, or creates them.
 
+Owned or rented houses also act as level-specific Lesson Mode access points. A house in Tower Level 1 can launch Level 1 lessons and milestone tests, a house in Tower Level 2 can launch Level 2 lessons and milestone tests, and so on. The Play-menu Lesson Mode option must use the same server-side house ownership/rental check before showing or launching a level's lessons.
+
 ### 3.6 Arena Visibility Rules
 - Each Tower level has one main Arena area, not many hidden player-made arena stages.
 - Arena activity visuals are visible by default to everyone in that Tower level server.
@@ -145,11 +151,11 @@ Do not add `AnswerPad_A`, `AnswerPad_B`, `AnswerPad_C`, or `AnswerPad_D` to Aren
 - Only players who have unlocked that Tower level can join that level's Arena.
 - The Arena starts when at least 1 eligible player joins and stops only when active players reach 0.
 - A solo player can practice questions, but solo answers give no session score and no XP.
-- Score and XP begin only when at least 2 active players are in the Arena.
+- Local session score can begin when at least 2 active players are in the Arena, but saved XP/coin rewards require a public Arena room with at least 4 active eligible players.
 - If the Arena began as solo practice, the second active player starts a fresh scored session at the next intermission; if they join during intermission, that same intermission becomes the scored-session start.
 - The Arena runs forever until everyone leaves.
 - Players cannot die inside Arena; wrong answers give no points and do not eliminate the player.
-- Current prototype scoring: first correct answer for a question scores 1 point. Final score and XP values are tracked in [notes.md](notes.md).
+- Current prototype scoring: first correct answer for a question scores 1 local session point. Final score, XP, and coin values are tracked in [notes.md](notes.md).
 - Arena questions come from a controlled question bank. AI-generated questions are not planned for the first version.
 - Each session shows a top-5 leaderboard using only scores from that session. Scores are not saved and do not carry to later sessions.
 - When the Arena becomes empty, the session leaderboard resets.
@@ -183,6 +189,52 @@ Do not add `AnswerPad_A`, `AnswerPad_B`, `AnswerPad_C`, or `AnswerPad_D` to Aren
 - Until a live question is active, the stage problem display can use the same two-line stage info text as its placeholder.
 - Nearby Group stage info does not auto-join or auto-spectate the player; it is only an information prompt.
 
+### 3.10 Competitive Reward Rules
+- Saved XP/coin rewards use this priority order after 1v1 cross-server matchmaking exists: Arena public 4+ active players pays the highest competitive reward, random cross-server 1v1 Quickmatch pays less than Arena but more than Group, and eligible Group rooms pay 20% of Arena rewards.
+- Private competitive contexts never give saved XP or coins. This includes private/VIP servers, invite-only Group rooms, Battlepass-created custom 1v1 matches, and any other custom room where players choose opponents or attendees.
+- Lesson Mode is a separate personal learning mode, not a competitive mode. It uses a personal popup/slide UI with explanations, examples, progress, and milestone tests. The free intro lesson/question is available from the Play menu without a house. Level-specific lessons are entered from the Play menu or from a player's house, and the server only allows those lessons for Tower levels where the player owns or rents an active house. Milestone rewards are small XP/coins plus lesson badges, allowed only as server-authorized, once-per-lesson or once-per-milestone rewards, not repeatable farming rewards.
+- Arena can still support solo practice and smaller local-score sessions, but saved Arena rewards require a public room with at least four active eligible players.
+- Group uses the Arena-style public-room reward rule, but with three reward conditions: public room, at least four active eligible players, and match-quality validation such as enough answered questions or duration. Eligible Group rewards pay 20% of Arena rewards.
+- 1v1 saved rewards only come from random Quickmatch after the cross-server matchmaking version exists. A player-selected opponent is too easy to farm, even when the match happens in a normal public Roblox server.
+- Roblox public servers should not be treated as secure matchmaking by themselves because players can choose servers, follow friends, and coordinate with alts. The first build can prototype random 1v1 within the current Roblox server if the server chooses the opponent from a queue, but that same-server prototype gives local score only. The reward-eligible version uses cross-server matchmaking: live servers add queued players to a shared MemoryStoreService queue, a server process forms valid pairs, then TeleportService sends the matched players to a reserved 1v1 match server.
+- Competitive reward code must run on the server. The client can request to join, answer, or create a room, but the server decides whether the match is public, private, random, custom, reward-eligible, and how much saved XP/coins to grant.
+- The final numeric reward amounts, cross-server random 1v1 multiplier, daily caps, minimum duration, minimum answered-question count, AFK checks, and repeat-opponent cooldowns are still tuning decisions tracked in [notes.md](notes.md).
+
+### 3.11 Lesson Mode Rules
+- Lesson Mode replaces the earlier dedicated Practice Mode idea. Instead of only drilling questions, it teaches knowledge first through short slide-style explanations, examples, and then practice tests as milestones.
+- Confirmed first implementation: keep Lesson Mode as a personal popup/slide UI overlay inside the current server/place. The server sends the lesson definition, validates milestone test answers, and grants any one-time rewards. A separate Roblox place/server is not required for normal slide lessons.
+- Use a separate Lesson place/server only if lessons become long immersive rooms, cinematic classrooms, multiplayer classes, or high-stakes exams that need isolated performance, camera, or world state. For the current house-gated lesson concept, a personal popup/UI is simpler and safer.
+- Lesson content should be organized into one free intro lesson/question plus Tower-level/topic lessons. A lesson can contain multiple slides, examples, checkpoint questions, and a final milestone test.
+- Milestone rewards are small XP/coins plus lesson badges. They must be server-authorized and one-time per player, access type, Tower level, lesson, milestone, and content version. Repeating lessons can give learning feedback, but should not re-award the same milestone reward.
+- Lesson access has two confirmed tiers: the free intro lesson/question is available to everyone through the Play menu, while level-specific lessons are gated by active house ownership/rental in that same Tower level. The client may ask to open a lesson, but the server decides whether the player can see the intro or house-gated lesson list.
+- Lesson Mode should help players prepare for Arena, 1v1, Group, Dungeon, and up-level tests, but should not reveal exact live competitive questions in a way that damages the game. Lesson questions can use the same topic/difficulty style while keeping live scored banks protected.
+- Exact lesson reward amounts, passing score, retry cooldown, badge list, and whether lessons consume the same question bank as competitive modes are open decisions tracked in [notes.md](notes.md).
+
+#### Lesson Content Placement
+Use this content split when the project moves into real Rojo modules:
+
+```text
+src/shared/LessonCatalog.luau
+  FreeIntro
+  TowerLevel1
+  TowerLevel2
+  TowerLevel3
+
+src/shared/LessonSlides/
+  FreeIntro/*.luau
+  TowerLevel1/<Topic>/*.luau
+  TowerLevel2/<Topic>/*.luau
+  TowerLevel3/<Topic>/*.luau
+
+src/server/Content/LessonMilestones/
+  FreeIntro/*.luau
+  TowerLevel1/<Topic>/*.luau
+  TowerLevel2/<Topic>/*.luau
+  TowerLevel3/<Topic>/*.luau
+```
+
+Put free intro lesson slides/questions under `FreeIntro`. These are visible from the Play menu for every player, even before they own a house. Put buy-house/house-gated lesson questions under the matching `TowerLevelX/<Topic>` folder. Those lessons should appear in the Play menu only after the server confirms an active house in that level, and should also be launchable from that house.
+
 ---
 
 ## 4. World & Level Design
@@ -214,7 +266,7 @@ Do not add `AnswerPad_A`, `AnswerPad_B`, `AnswerPad_C`, or `AnswerPad_D` to Aren
 ---
 
 ## 6. UI / UX
-- **HUD Elements:** player health bar, boss health bar, currency, timer, minimap, sprint stamina meter, and Progression UI showing the player's current progression level plus the stamina reward tied to that progress
+- **HUD Elements:** player health bar, boss health bar, currency, timer, minimap, sprint stamina meter, and a lobby Progression UI showing both Tower Level and XP progress toward the next up-level test. Stamina reward display can be added later after sprint milestone numbers are final.
 - **Menus Required:** (main menu, settings, shop, inventory, leaderboard)
 - **Mobile Compatibility:** (yes / no / partial)
 - **Accessibility Considerations:**
@@ -238,6 +290,12 @@ Do not add `AnswerPad_A`, `AnswerPad_B`, `AnswerPad_C`, or `AnswerPad_D` to Aren
 - [ ] Tower Arena shared visibility/projection broadcaster
 - [ ] Tower Arena gate prompt, join queue, spectator state, intermission loop, and exit handler
 - [ ] Tower Arena solo-practice rule, fresh scored-session reset, answer scoring, and top-5 session leaderboard
+- [ ] Competitive reward validator for Arena, random 1v1 Quickmatch, Group, private/VIP, invite-only, and custom no-reward contexts
+- [ ] 1v1 same-server no-reward Quickmatch prototype, cross-server reward-eligible Quickmatch queue, and Battlepass-only custom 1v1 room creator
+- [ ] Future cross-server matchmaking queue using MemoryStoreService and TeleportService reserved match servers
+- [ ] Lesson Mode access validator that always allows the free intro lesson/question, and allows level lessons from the Play menu or a player's house only when the player owns or rents an active house in that same Tower level
+- [ ] Lesson Mode slide, checkpoint question, milestone test, one-time milestone reward, and content-version progress tracker
+- [ ] Lesson content catalog split into free intro content and house-gated Tower-level/topic content
 - [ ] Dungeon daily question reset, Battlepass no-cooldown rule, post-clear Battlepass finisher visibility, and finisher-only chat access
 - [ ] Up-level boss fight test handler
 - [ ] XP cap / pause system
@@ -253,7 +311,7 @@ Do not add `AnswerPad_A`, `AnswerPad_B`, `AnswerPad_C`, or `AnswerPad_D` to Aren
 - [ ] Camera behavior
 - [ ] Controlled launch camera and movement presentation
 - [ ] Sprint stamina toggle input, GUI button highlight, meter, drain, and recharge presentation
-- [ ] Progression UI that shows the player's current progression level and the stamina reward tied to that progress
+- [ ] Progression UI that shows both Tower Level and XP progress toward the next up-level test
 - [ ] Dungeon daily progress display, Battlepass finisher visibility/chat state, and clear messaging for cooldown or no-cooldown status
 - [ ] Visual effects (particles, tweens)
 
@@ -262,6 +320,7 @@ Do not add `AnswerPad_A`, `AnswerPad_B`, `AnswerPad_C`, or `AnswerPad_D` to Aren
 - [ ] Utility functions
 - [ ] Remotes manifest
 - [ ] Tower XP threshold config and level-to-destination mapping that can extend past Level 3 later
+- [ ] Progression display config shared by the lobby UI and server-side progress rules
 - [ ] Sprint stamina config for XP milestones after the exact milestone thresholds and stamina values are confirmed
 
 ### 7.4 Remote Events & Functions
@@ -270,7 +329,7 @@ Do not add `AnswerPad_A`, `AnswerPad_B`, `AnswerPad_C`, or `AnswerPad_D` to Aren
 | TowerAccessDenied | Event | Server | Client | Tell the player a Tower level is locked and how much XP is required |
 | PlayTeleportFailed | Event | Server | Client | Tell the player a Play-menu teleport could not start, such as when a place ID is still missing |
 | LobbyTowerGateStatesRequested | Event | Client | Server | Ask the server for fresh Tower level button states when the Play menu opens |
-| LobbyTowerGateStatesUpdated | Event | Server | Client | Tell the player which Tower gates and Play button choices are unlocked, locked, or ready for an up-level test |
+| LobbyTowerGateStatesUpdated | Event | Server | Client | Tell the player which Tower gates, Tower Play choices, and house-gated Lesson Mode choices are unlocked, locked, or ready for an up-level test |
 | TowerLevelPlayRequested | Event | Client | Server | Request direct entry to a chosen Tower level from the lobby Play button |
 | QuickmatchPlayRequested | Event | Client | Server | Request the Play-menu Quickmatch route |
 | UpLevelTestReady | Event | Server | Client | Tell the player they have enough XP to attempt the up-level test |
@@ -294,6 +353,15 @@ Do not add `AnswerPad_A`, `AnswerPad_B`, `AnswerPad_C`, or `AnswerPad_D` to Aren
 | ArenaLeaderboardUpdated | Event | Server | Client | Sync the top-5 leaderboard for the current Arena session |
 | ArenaScoredSessionStarted | Event | Server | Client | Tell clients that the second active player started a fresh scored session |
 | ArenaActivityEnded | Event | Server | Client | Tell every client in the level server to clear the shared Arena activity visuals |
+| CompetitiveRewardResult | Event | Server | Client | Tell a player whether a competitive action paid saved XP/coins, gave local score only, or was blocked by practice/private/custom/repeat-opponent rules |
+| OneVOneQuickmatchRequested | Event | Client | Server | Request random 1v1 matchmaking; same-server prototype gives local score only, while cross-server reserved match servers can become reward-eligible |
+| OneVOneCustomCreateRequested | Event | Client | Server | Request a Battlepass-only custom 1v1 room; custom rooms give no saved XP or coins |
+| OneVOneCustomJoinRequested | Event | Client | Server | Request to join a custom 1v1 room; custom rooms give no saved XP or coins |
+| LessonModeRequested | Event | Client | Server | Request a personal Lesson Mode session from the Play menu or house; the server allows free intro lessons and validates unlocked level plus active house ownership/rental for house-gated level lessons |
+| LessonAccessDenied | Event | Server | Client | Tell a player they need an active house in that Tower level before opening that level's lessons |
+| LessonSlideOpened | Event | Server | Client | Send one player the approved lesson slide content for the selected Tower level/topic |
+| LessonMilestoneSubmitted | Event | Client | Server | Submit a Lesson Mode milestone test answer or result for server validation |
+| LessonMilestoneResult | Event | Server | Client | Tell a player whether the milestone test passed and whether a one-time lesson reward was granted |
 | GroupStageCreateRequested | Event | Client | Server | Request a Group stage in a Tower Community or the Playground |
 | GroupStageJoinRequested | Event | Client | Server | Request to join a public or invite-only Group stage |
 | GroupStagePrivacyRequested | Event | Client | Server | Request a Battlepass host privacy change for their Group stage |
@@ -323,8 +391,8 @@ Do not add `AnswerPad_A`, `AnswerPad_B`, `AnswerPad_C`, or `AnswerPad_D` to Aren
 
 ## 8. Data & Persistence
 - **DataStore Keys:** `PlayerProgress_v1:{UserId}`
-- **Saved Player Data:** coins, total XP, highest unlocked Tower level, passed up-level tests, Battlepass ownership/entitlement, per-level daily Dungeon completion/reward claim state, per-question daily Dungeon reward claim/wrong-answer-removal state, owned/rented houses, settings, inventory
-- **Session Data (not saved):** current mode run, active Arena projection state, active Arena roster, queued Arena spectators, Arena intermission countdown, Arena per-session top-5 leaderboard, dungeon run state, active daily Dungeon version, active Dungeon finisher layer visibility/chat state, active Community group stages, active Playground group stages, per-player group spectate opt-ins, portal touch debounce
+- **Saved Player Data:** coins, total XP, highest unlocked Tower level, passed up-level tests, Battlepass ownership/entitlement, per-level daily Dungeon completion/reward claim state, per-question daily Dungeon reward claim/wrong-answer-removal state, recent rewarded 1v1 opponents or daily competitive reward anti-farm counters if needed, owned/rented houses with Tower level and active ownership/rental state for Lesson Mode access, free intro and per-level lesson milestone completion, lesson badge ownership, and one-time reward claim state by lesson content version, settings, inventory
+- **Session Data (not saved):** current mode run, active Arena projection state, active Arena roster, queued Arena spectators, Arena intermission countdown, Arena per-session top-5 leaderboard, current no-reward same-server 1v1 quickmatch queue state, future cross-server 1v1 reservation state, active no-reward custom 1v1 rooms, current Lesson Mode slide/milestone session state, dungeon run state, active daily Dungeon version, active Dungeon finisher layer visibility/chat state, active Community group stages, active Playground group stages, per-player group spectate opt-ins, portal touch debounce
 - **Data Migration Plan:** Deferred; track the live schema migration decision in [notes.md](notes.md).
 
 ---
@@ -333,9 +401,9 @@ Do not add `AnswerPad_A`, `AnswerPad_B`, `AnswerPad_C`, or `AnswerPad_D` to Aren
 | Product | Type | Robux Price | What It Gives |
 |---|---|---|---|
 | Dungeon Cooldown Skip | Developer Product | Deferred | Skip only the current failed-run cooldown once for a normal player |
-| Battlepass | Game Pass | Deferred | Create Group stages in the Playground, make Group stages invite-only, remove Dungeon cooldown, and unlock post-clear Dungeon finisher visibility/chat with other Battlepass daily finishers |
+| Battlepass | Game Pass | Deferred | Create no-reward custom 1v1 rooms, create Group stages in the Playground, make Group stages invite-only, remove Dungeon cooldown, and unlock post-clear Dungeon finisher visibility/chat with other Battlepass daily finishers |
 
-- **VIP Server support:** Deferred; track the decision in [notes.md](notes.md).
+- **VIP Server support:** Deferred; if VIP/private servers are supported, they must not grant saved competitive XP or coins.
 - **Free-to-play friendly:** Yes — normal players can still complete Dungeon; paid perks reduce retry friction and add post-clear social visibility/chat.
 
 ---
@@ -559,8 +627,8 @@ rojo serve
 - Commit script/config changes through Git with clear messages.
 - Push branches to GitHub for backup and review.
 - Keep `bro.md` as the design plan.
-- Keep `notes.md` as the home for open questions, reminder notes, unfinished
-  ideas, and deferred decisions.
+- Keep `notes.md` as the temporary open-work queue for open questions,
+  future-development notes, deferred decisions, and ideas to revisit.
 - Keep `To-Do.md` as the builder task guide, checklist, testing routine, and
   handoff checklist.
 - Keep `bro.luau` as the rough implementation draft until systems are split into real modules.
@@ -597,9 +665,10 @@ Moved to [notes.md](notes.md).
 - [ ] Tower floors/areas remain explorable even when higher gates are locked
 - [ ] Tower gates reject players below the XP/current-level requirement or without the required up-level test
 - [ ] Tower gates allow players who have unlocked that Tower level
-- [ ] Play button opens the first-choice menu with Tower and Quickmatch
+- [ ] Play button opens the first-choice menu with Tower, Quickmatch, and Lesson Mode
 - [ ] Play button Tower choice opens Level 1, Level 2, and Level 3 buttons
 - [ ] Quickmatch rejects missing place IDs clearly until the real destination is configured
+- [ ] Lesson Mode from the Play menu always shows the free intro lesson/question and shows/launches house-gated Tower lessons only where the player owns or rents an active house
 - [ ] Play button direct level selection rejects locked levels and allows unlocked levels using the same checks as Tower gates
 - [ ] Tower gate and Play button routing reject invalid level numbers, missing place IDs, and destination place IDs outside the server allowlist
 - [ ] First build exposes only Level 1, Level 2, and Level 3 Tower gates while keeping the naming/config format ready for Level 4+
@@ -609,6 +678,10 @@ Moved to [notes.md](notes.md).
 - [ ] Each Tower level dungeon portal only accepts players who unlocked that level
 - [ ] Any direct level teleport portals only send players to unlocked Tower levels and use the same checks as Tower gates and the Play button
 - [ ] Community area allows valid house buy/rent actions only for players with that Tower level unlocked
+- [ ] House Lesson Mode access launches that house's Tower level lessons and milestone tests
+- [ ] Lesson Mode access rejects no-house, wrong-level-house, locked-level, and spoofed client requests
+- [ ] Lesson milestone rewards are one-time per player/content version and cannot be farmed by repeating slides or tests
+- [ ] Free intro lesson/question is available to every player without house ownership and still uses one-time reward tracking
 - [ ] Arena activity and the large question projection are visible to everyone in the Tower level server without clicking spectate
 - [ ] Arena gate shows `Join the Arena?` and only unlocked players can accept
 - [ ] Arena starts with 1 player as practice and gives no score/XP while solo
@@ -618,6 +691,8 @@ Moved to [notes.md](notes.md).
 - [ ] Arena exit button removes active, queued, and spectator players correctly
 - [ ] Arena ends and resets the session leaderboard when active players reach 0
 - [ ] Arena leaderboard shows only the top 5 scores from the current session and does not persist
+- [ ] Same-server 1v1 Quickmatch prototype gives local score only and no saved XP/coins
+- [ ] Cross-server 1v1 Quickmatch is required before saved 1v1 rewards are enabled
 - [ ] Group mode creates a physical stage layout in a Community zone or the Playground with problem display and attendant chairs
 - [ ] Normal players can create public Group stages only in unlocked Tower Community zones
 - [ ] Normal players cannot create Group stages in the Playground
@@ -815,6 +890,11 @@ AdventureGuide
 
 Important GUI scripting rule:
 
+- Always apply the Studio-owned visual UI workflow for GUI, HUD, menu, button,
+  label, image, bar, or screen features unless the owner explicitly asks for a
+  different temporary approach.
+- Codex should give the owner an exact `StarterGui` Explorer tree with object
+  names and object types when a polished GUI should be built in Studio.
 - In the current partially managed Rojo setup, `StarterGui` screens are visual UI
   objects made in Roblox Studio. Scripts placed directly under those GUI objects
   in Studio, such as a `LocalScript` under a Play button, are not automatically
@@ -822,6 +902,9 @@ Important GUI scripting rule:
 - For the first build, keep GUI behavior in VS Code under
   `src/client/Controllers`, then have the client controller find the real GUI in
   `Players.LocalPlayer.PlayerGui` with `WaitForChild`.
+- Codex may create a temporary code-made GUI first when a quick prototype helps
+  prove the feature, but the final path should connect VS Code behavior to the
+  owner-built Studio GUI.
 - Example: the Tower/Play button behavior should become a client controller such
   as `src/client/Controllers/PlayButtonController.client.luau`, instead of a
   Studio-only script nested inside `StarterGui > PlayButton`.
@@ -848,9 +931,11 @@ Current files:
 ```text
 src/shared/TowerConfig.luau
 src/shared/PlaceConfig.luau
+src/shared/ProgressionConfig.luau
 src/server/Main.server.luau
 src/server/PlaceBootstrap.luau
 src/client/Main.client.luau
+src/client/Controllers/ProgressionUIController.client.luau
 src/places/lobby/LobbyPlace.luau
 src/places/tower-level/TowerLevelPlace.luau
 src/places/dungeon/DungeonPlace.luau

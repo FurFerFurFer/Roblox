@@ -80,9 +80,11 @@ Before answering prompts or changing Brain Brawl logic, read:
 
 Treat those files as planning and Luau draft artifacts, not as the final Roblox
 Studio source tree. Update the planning files when the user changes the design.
-Put open questions, reminders, unfinished ideas, and deferred decisions in
-`_brain_brawl_planning/notes.md`. Do not copy these files into the production
-project unless the user explicitly asks.
+Put only unresolved questions, future-development notes, deferred decisions, and
+ideas to revisit in `_brain_brawl_planning/notes.md`. Once an item is confirmed,
+clarified, implemented, or obsolete, move any lasting truth into the durable
+planning files and delete it from `notes.md`. Do not copy these files into the
+production project unless the user explicitly asks.
 ```
 
 ## Why Not Copy Files?

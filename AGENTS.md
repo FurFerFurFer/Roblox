@@ -35,6 +35,20 @@ Studio handoff steps, read the first section of `To-Do.md` and follow the
 start-every-coding-session routine there. Treat that section as the canonical
 daily coding and Rojo workflow.
 
+## Studio Handoff Property Guidance
+
+When giving the owner Roblox Studio GUI or Workspace instructions, include brief
+basic style/property guidance alongside the Explorer tree or object path. For
+GUI, name the important properties a beginner should set, such as `Size`,
+`Position`, `AnchorPoint`, color, transparency, text scaling, visibility, and
+parent/child layout. For Workspace objects, name practical setup properties such
+as object type, size or scale, position purpose, color/readability, anchoring,
+collision, transparency, and whether the object is visible or invisible.
+
+When updating `studiowork-data.md`, record these short property/style notes near
+the matching GUI or Workspace object so future Studio work has both the required
+object names and the basic visual/setup guidance.
+
 ## Project Concept Review
 
 Whenever the user explains a new project concept, game idea, or mechanic:
@@ -56,20 +70,23 @@ for the future real project. Keep `bro.luau` aligned with `bro.md` and
 `notes.md`: use clearly labeled blocks, describe behavior in code-shaped terms,
 and do not leave superseded behavior in the draft. Do not add uncertain/open
 ideas to `bro.luau` as if they are final; keep those in `notes.md` until the
-owner confirms them.
+owner confirms them. Once the owner confirms or clarifies a note, move the
+durable detail into `bro.md`, `To-Do.md`, or `bro.luau` as appropriate, then
+delete that settled item from `notes.md`.
 
-Use clear status labels so notes do not imply more certainty than the user gave:
-mark approved decisions as confirmed, unresolved topics as open questions, and
-early or debated ideas as notes/ideas to revisit. If important design choices
-are missing or clarifying questions remain unanswered, capture what is known,
-put the unresolved parts in `notes.md`, ask the questions, and wait before
-implementing.
+Use `notes.md` only for items that still lead to future development, follow-up
+tuning, risk review, or owner decisions. Accepted labels are `Open Question`,
+`Idea To Revisit`, and actionable `Note`. Do not keep confirmed, clarified,
+implemented, or obsolete items in `notes.md`. If important design choices are
+missing or clarifying questions remain unanswered, capture what is known in the
+durable planning files, put only the unresolved parts in `notes.md`, ask the
+questions, and wait before implementing.
 
 ## File Responsibilities
 
 - `bro.md` is the living game design plan for Brain Brawl.
-- `notes.md` is the central home for open questions, reminder notes,
-  unfinished ideas, deferred decisions, and loose planning notes.
+- `notes.md` is the temporary open-work queue for open questions,
+  future-development notes, deferred decisions, and ideas to revisit.
 - `To-Do.md` is the start-of-coding routine, builder task guide, and checklist
   extracted from topic 17 of `bro.md`.
 - `bro.luau` is the Luau implementation draft. Keep one separate labeled block per function.

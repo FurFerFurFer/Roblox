@@ -8,8 +8,10 @@ Status labels:
 - `[x] Confirmed Done` means the task is already completed in the planning/code workspace.
 - `[ ] Todo` means the task is not done yet.
 
-Open questions, reminders, unfinished ideas, and deferred decisions live in
-[notes.md](notes.md), not in this checklist.
+Open questions, future-development notes, deferred decisions, and ideas to
+revisit live in [notes.md](notes.md), not in this checklist. Confirmed,
+clarified, implemented, or obsolete items should be removed from `notes.md`
+after any lasting truth is captured here, in `bro.md`, or in `bro.luau`.
 
 ## Start Every Coding Session
 
@@ -19,7 +21,7 @@ section is the canonical daily GitHub, Roblox Studio, and Rojo routine.
 ### One-Time Setup
 
 - [ ] Confirm the owner controls the GitHub repo; collaborators either request changes through PRs or receive approved push access.
-- [ ] Move the Roblox game to a Group so collaborators can be Group members with owner-level edit access when needed.
+- [ ] Move the Roblox game to a Group when multiple builders/scripters need reliable edit and publish access; the Group solves Roblox permissions, not Rojo sync by itself.
 - [ ] For Rojo sync work, open the place through `File > Open from Roblox`, not by joining Team Create.
 
 ### Daily Dev Loop
@@ -37,6 +39,7 @@ section is the canonical daily GitHub, Roblox Studio, and Rojo routine.
 
 - [ ] Use Team Create normally for world building.
 - [ ] Remember that Rojo only touches scripts; it does not modify Workspace.
+- [ ] For script sync, collaborators should use the same Git repo and Rojo project mapping, and the Studio script hierarchy should match `default.project.json`; local computer folder paths do not need to be identical.
 - [ ] If a friend's Workspace needs to be merged into the local place, use the merge routine below.
 
 Workspace merge routine:
@@ -74,12 +77,12 @@ Most building sessions should move through these chunks in order:
 4. Use `Use Chunk 4` when the blockout works and needs polish.
 5. Run safety, testing, and scripting handoff in `Use Chunk 5`.
 6. Use `Use Chunk 6` when connecting real Roblox places and code.
-7. Put uncertain ideas, reminders, and owner questions in `Use Chunk 7`.
+7. Put uncertain ideas, future-development notes, and owner questions in `Use Chunk 7`.
 
 If new work is discovered while building, add it to the most specific matching
 section instead of leaving it only in chat. If the work is uncertain or depends
-on an owner decision, put it in [notes.md](notes.md) as an open question or
-idea to revisit.
+on an owner decision, put only the unresolved follow-up in [notes.md](notes.md)
+as an open question, actionable note, or idea to revisit.
 
 ## Use Chunk 1: Pick What To Build Next
 
@@ -144,7 +147,7 @@ Goal: players spawn, understand where to go, and can choose the main activity wi
 - [ ] Build the info/social route zone with the leaderboard, login board, tutorial board, guide board, and the clear path to the Playground. Keep these items close enough that players understand them as information and social navigation.
 - [ ] Make the main action zone easy to separate visually from the info/social route zone with floor shape, spacing, lighting, signs, railings, arches, or another simple layout cue.
 - [ ] Add visually distinct portals or entrances for Arena, 1v1, Dungeon, and Tower-related play.
-- [ ] Add a Play button access point that clearly supports Tower level selection and Quickmatch.
+- [ ] Add a Play button access point that clearly supports Tower level selection, Quickmatch, and Lesson Mode access for house-owned/rented levels.
 - [ ] Place the Playground beside the lobby with enough open space for social activity and Group stages.
 - [ ] Reserve clean paths from spawn to the main portals so Group stages and crowds cannot block movement.
 - [ ] Add readable signs, arrows, lighting, or landmark shapes for each main mode.
@@ -155,7 +158,7 @@ Validation:
 - [ ] A new player can tell that the portals and Tower Area path are one main action zone, while the leaderboard, login/tutorial/guide boards, and Playground path are a separate info/social route zone.
 - [ ] Several players can stand near each portal without blocking each other or hiding prompts.
 - [ ] Players reading boards or walking to the Playground do not block the game mode portals or the Tower Area path.
-- [ ] The Play button Tower choice opens Level 1-3 choices, and Quickmatch requests the fast match route.
+- [ ] The Play button Tower choice opens Level 1-3 choices, Quickmatch requests the fast match route, and Lesson Mode always shows the free intro lesson/question plus house-gated lessons for levels where the player owns or rents an active house.
 
 ### 17.5 Tower Area And Level Gates
 
@@ -247,6 +250,7 @@ Goal: Group stages create social activity without blocking main navigation or co
 
 - [ ] Reserve `Community/GroupStagesArea` as blank/open space for player-created Group stages.
 - [ ] Reserve `Community/HousesArea` as the area where player-added, bought, or rented houses can appear.
+- [ ] Plan each owned/rented house as a Lesson Mode access point for that house's Tower level slides, examples, and milestone tests.
 - [ ] Build one standard spawnable Group stage prototype before making skins or host customization.
 - [ ] Do not pre-place finished Group stage models in the starter Community map; stages should appear only after a player creates/adds them.
 - [ ] Plan chair anchors, host position, join prompt, spectate prompt, info trigger, and problem display anchor for spawned stages.
@@ -318,6 +322,13 @@ Run this review after each playable area is blocked out and again after major de
 - [ ] Players cannot enter Arena, Dungeon, Group, or up-level test spaces through gaps, clipping spots, or one-way geometry mistakes.
 - [ ] Players cannot stand behind question screens or trigger zones to break interactions.
 - [ ] Players cannot skip Dungeon questions or view another player's correct route while actively solving. Post-clear Battlepass finisher visibility must not reveal active non-finishers.
+- [ ] Competitive rewards cannot be farmed through chosen opponents, friend/alt boosting, empty-server hopping, private/VIP servers, invite-only stages, or repeated same-opponent matches.
+- [ ] Saved XP/coin reward code for 1v1, Arena, and Group validates match quality on the server before paying rewards: eligible public context, cross-server random Quickmatch for rewarded 1v1, at least four active eligible players for Arena/Group rewards, enough answered questions or match duration, and repeat-opponent/server caps.
+- [ ] Private/VIP servers, invite-only Group rooms, and Battlepass-created custom 1v1 rooms never grant competitive saved XP or coins.
+- [ ] Same-server 1v1 Quickmatch prototype gives local score only; saved 1v1 rewards stay disabled until cross-server matchmaking places matched players into server-owned reserved match servers.
+- [ ] House-gated Lesson Mode requests from the Play menu or a house are denied unless the server confirms the player owns or rents an active house in the requested Tower level; free intro Lesson Mode stays available without a house.
+- [ ] Lesson milestone rewards are server-authorized, one-time per player/content version, and cannot be farmed by repeating the same lesson or milestone test.
+- [ ] Free intro Lesson Mode content is available without a house, but still uses server-authorized one-time milestone reward tracking.
 - [ ] Group stage placement cannot block important paths, spawns, portals, exits, or reset routes.
 - [ ] Kill zones and reset zones cannot repeatedly trap a player.
 - [ ] Spawn points do not place players inside collision, under the map, facing away from the main route, or inside another player's likely path.
@@ -332,6 +343,10 @@ Run this review after each playable area is blocked out and again after major de
 - [ ] Test portal and prompt spacing with several players standing nearby.
 - [ ] Run the validation checklist inside the area section being tested.
 - [ ] Run the exploit and safety review in section 17.13 after every playable blockout.
+- [ ] Test Arena, 1v1, and Group reward behavior for solo Arena practice, public valid Arena with 4+ players, same-server no-reward 1v1 Quickmatch prototype, future cross-server reward-eligible 1v1 Quickmatch, Battlepass custom 1v1, public Group with 4+ players at 20% Arena reward, private/VIP/custom match, repeated opponent, friend/alt boosting attempt, server hop, disconnect, and AFK edge cases.
+- [ ] Test Lesson Mode access from the Play menu and from a house: owned/rented house in same Tower level allows lessons, no house denies access, wrong-level house denies access, locked Tower level denies access, and spoofed client requests are rejected.
+- [ ] Test Lesson Mode milestone rewards: first valid pass grants the one-time reward, repeat attempts do not re-award, failed attempts do not reward, and content-version changes are handled deliberately.
+- [ ] Test free intro lesson/question access for brand-new players with no house and verify its one-time reward cannot be farmed.
 - [ ] Test all areas with Studio graphics lowered to catch readability problems.
 - [ ] Save screenshots or short clips when asking AI, teammates, or the owner for review.
 
@@ -362,23 +377,34 @@ startup systems are being connected.
 - [x] Confirmed Done: Add a server `PlaceBootstrap` module that starts the correct place-specific module.
 - [x] Confirmed Done: Update Rojo config so `src/places` syncs into `ServerScriptService > PlaceScripts`.
 - [x] Confirmed Done: Disable lobby Workspace scaffolding so the lobby startup code does not auto-create generated map entities.
+- [x] Confirmed Done: Clean up old generated lobby helper names during startup if they were saved from older prototypes, including `SpawnPoints`, `LobbySpawn`, `Portals`, flat lobby portal trigger pads, `ElevatorStops`, `LobbyTowerElevatorStop_Level1` through `LobbyTowerElevatorStop_Level3`, `LockedBarriers`, and old locked barrier pads.
 - [ ] Replace every placeholder `0` in `TowerConfig.PlaceIds` with real Roblox place IDs from the Brain Brawl universe.
 - [ ] Decide whether to add Rojo `servePlaceIds` after real place IDs exist, so syncing into the wrong Studio place is harder.
 - [ ] Open each real Roblox place in Studio, connect Rojo, and confirm the correct starter module prints in Output.
-- [ ] Move any Studio-only GUI behavior scripts, such as Play button or Tower teleport LocalScripts under `StarterGui`, into VS Code client controllers under `src/client`; keep the Studio GUI objects as visual layout unless `StarterGui` is intentionally added to `default.project.json`. Do not auto-create fallback Play button UI from code, because it causes duplicate Play buttons when the builder already made the real UI.
+- [ ] Move any Studio-only GUI behavior scripts, such as Play button or Tower teleport LocalScripts under `StarterGui`, into VS Code client controllers under `src/client`; keep the Studio GUI objects as visual layout unless `StarterGui` is intentionally added to `default.project.json`. Do not auto-create fallback Play button UI from code; if the hand-made `PlayerGui > PlayButton` UI is missing, warn and stop instead of drawing a replacement.
 - [ ] Move lobby Play-menu routing from the general `Main.server.luau` script into a lobby-specific service once the first lobby systems are stable.
 - [ ] Add real Tower Level startup logic for Arena, Dungeon Teleport, Spawn & Level Teleport, and Community.
+- [ ] Add a CompetitiveRewardService that separates local session score from saved XP/coin payouts and enforces the confirmed reward order: Arena public 4+ highest, cross-server random 1v1 Quickmatch next, eligible public Group at 20% of Arena.
+- [ ] Add Lesson Mode routing and feedback through the Play menu and through house interaction points, with server validation for active house ownership/rental in the selected Tower level.
+- [ ] Add Lesson Mode slide content, checkpoint questions, milestone tests, and one-time server-authorized milestone rewards.
+- [ ] Put free intro lesson content under the `FreeIntro` lesson catalog path, and put buy-house/house-gated lesson questions under the matching `TowerLevelX/<Topic>` lesson catalog path.
+- [ ] Add random 1v1 Quickmatch routing where the server chooses the opponent; same-server 1v1 is a no-reward prototype, and saved 1v1 rewards must wait for cross-server matchmaking.
+- [ ] Add Battlepass-only custom 1v1 room creation and joining with no saved XP or coin rewards.
+- [ ] Prototype future cross-server 1v1 matchmaking separately with MemoryStoreService queueing and TeleportService reserved match servers before relying on it for launch rewards.
 - [ ] Add Tower Area launch pad server logic that validates the player's highest unlocked Tower level, then starts the controlled launch to the matching landing.
 - [ ] Add sprint stamina config and runtime logic using XP milestones once the exact milestone thresholds and stamina values are confirmed.
 - [ ] Make sprint a toggle controlled by Shift and by a visible GUI button; the button should highlight while sprint is requested/active and turn off automatically when stamina runs out or the player clicks it again.
-- [ ] Add a Progression UI that shows the player's current progression level and the stamina reward tied to that progress.
+- [x] Confirmed Done: Add first Rojo-ready Progression UI source files: `src/shared/ProgressionConfig.luau` and `src/client/Controllers/ProgressionUIController.client.luau`.
+- [ ] Add a Studio-owned `StarterGui > ProgressionUI` ScreenGui with descendants named `TowerLevelLabel`, `XPLabel`, `NextLabel`, and optionally `ProgressBar > ProgressFill`; the VS Code controller binds to those names and must not auto-create fallback UI.
+- [ ] Test the lobby Progression UI through Rojo and confirm it updates from server-owned `Experience` and `TowerLevel` values. When checking the fill bar, test `Experience = 50` at Tower Level 1 for a half bar, `Experience = 100` at Tower Level 1 for a full ready bar, or `Experience = 175` at Tower Level 2 for a half bar toward 250 XP.
 - [ ] Add real Dungeon startup logic for solo runs, UTC daily question reset, question checkpoints, per-question reward claim tracking, wrong-answer coin removal, clear correct-answer UI reveal, solved-question state, per-level completion reward claim tracking, coin resets, normal-player cooldowns, one-time current failed-run cooldown skip purchases, Battlepass no-cooldown access, anti-copy rules, post-clear same-level Battlepass finisher visibility across the whole Dungeon, and finisher-only chat.
 - [ ] Add real Up-Level Test startup logic for the boss fight, health bars, timed questions, pass/fail saving, and teleport return handling.
 - [ ] Document the final Studio/VS Code workflow for editing one code directory while opening one Roblox place at a time.
 
-## Use Chunk 7: Store Loose Notes Elsewhere
+## Use Chunk 7: Store Open Work Elsewhere
 
-Use this chunk when something is not ready to become a checklist task yet.
+Use this chunk when an unresolved question, future-development note, deferred
+decision, or idea to revisit is not ready to become a checklist task yet.
 
 ### 17.17 Notes File
 

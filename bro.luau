@@ -1,7 +1,8 @@
 --!nocheck
 -- Planning companions: `bro.md` holds the design plan, `notes.md` holds open
--- questions/reminders/deferred decisions, and `To-Do.md` holds builder tasks,
--- map checklists, testing routines, and handoff requirements.
+-- questions, future-development notes, deferred decisions, and ideas to revisit,
+-- and `To-Do.md` holds builder tasks, map checklists, testing routines, and
+-- handoff requirements.
 
 -- ============================================================
 -- [ GAME MODE ROUTER ]
@@ -22,9 +23,11 @@ local function startGameMode(player, mode, context)
 		end
 		return false, "ArenaActivityNotReady"
 	elseif mode == "1v1" then
-		-- launch 1v1 duel trivia for 2 players
+		-- launch rewarded random Quickmatch 1v1, or Battlepass-created custom 1v1 with no saved rewards
+	elseif mode == "LessonMode" then
+		-- launch personal lesson slides and milestone tests
 	elseif mode == "Group" then
-		-- launch group free-for-all trivia, optionally from a Community stage
+		-- launch group free-for-all trivia, optionally from a public reward-eligible or private no-reward stage
 	elseif mode == "Dungeon" then
 		-- launch solo dungeon obby mode
 	elseif mode == "UpLevelTest" then
@@ -52,6 +55,7 @@ local PLACE_IDS = {
 	Arena       = 0,
 	OneVOne    = 0,
 	Group      = 0,
+	LessonMode = 0,
 	Dungeon    = 0,
 	TowerLevel1 = 0,
 	TowerLevel2 = 0,
@@ -75,6 +79,64 @@ local DEFAULT_UNLOCKED_TOWER_LEVEL = 1
 local XP_REWARDS = {
 	CorrectAnswer = 10,
 	DungeonComplete = 100,
+}
+
+local COMPETITIVE_REWARD_MODES = {
+	Arena = "Arena",
+	OneVOne = "1v1",
+	Group = "Group",
+}
+
+local COMPETITIVE_MATCH_TYPES = {
+	Public = "Public",
+	LessonMode = "LessonMode",
+	RandomQuickmatch = "RandomQuickmatch",
+	Custom = "Custom",
+	Private = "Private",
+}
+
+local LESSON_MODE_REWARD_POLICY = {
+	oneTimePerMilestone = true,
+	rewardKeyScope = "Player:TowerLevel:LessonId:MilestoneId:ContentVersion",
+	defaultReward = {
+		xp = 5,
+		coins = 5,
+		badgeId = nil,
+	},
+}
+
+local LESSON_ACCESS_TYPES = {
+	FreeIntro = "FreeIntro",
+	HouseLevel = "HouseLevel",
+}
+
+local LESSON_CONTENT_PATHS = {
+	SharedCatalog = "src/shared/LessonCatalog.luau",
+	SharedSlidesRoot = "src/shared/LessonSlides",
+	ServerMilestonesRoot = "src/server/Content/LessonMilestones",
+	FreeIntro = "FreeIntro",
+	HouseLevelPattern = "TowerLevel%d/%s",
+}
+
+local COMPETITIVE_REWARD_POLICY = {
+	Arena = {
+		minRewardPlayers = 4,
+		rewardMultiplier = 1,
+		rewardRank = 1,
+	},
+	OneVOne = {
+		minRewardPlayers = 2,
+		requiresRandomQuickmatch = true,
+		requiresCrossServerForSavedRewards = true,
+		sameServerPrototypeRewardsEnabled = false,
+		rewardMultiplier = nil, -- Open tuning: less than Arena, more than Group.
+		rewardRank = 2,
+	},
+	Group = {
+		minRewardPlayers = 4,
+		rewardMultiplier = 0.2,
+		rewardRank = 3,
+	},
 }
 
 local TowerLevelAreas = {
@@ -114,6 +176,12 @@ local GROUP_STAGE_PRIVACY = {
 	Public = "Public",
 	InviteOnly = "InviteOnly",
 }
+
+local LESSON_ACCESS_SOURCES = {
+	PlayMenu = "PlayMenu",
+	House = "House",
+}
+
 local GROUP_STAGE_DEFAULT_SEAT_COUNT = 8
 local GROUP_STAGE_INFO_RADIUS = 24
 local GROUP_STAGE_INFO_CHECK_INTERVAL = 0.5
@@ -135,12 +203,17 @@ local COMMUNITY_HOUSE_ACTIONS = {
 	Rent = "Rent",
 }
 
+local FREE_INTRO_LESSON_ID = "FreeIntro"
+local FREE_INTRO_TOWER_LEVEL = 0
+
 local communityGroupStages = {}
 local playgroundGroupStages = {}
 local activeGroupStages = {}
 local groupStageSpectators = {}
 local groupStageNearbyPlayers = {}
 local groupStageInfoTrackerRunning = false
+local communityHouseReservations = {}
+local lessonMilestoneRewardClaims = {}
 
 local GROUP_STAGE_CREATE_REMOTE = "GroupStageCreateRequested"
 local GROUP_STAGE_JOIN_REMOTE = "GroupStageJoinRequested"
@@ -197,10 +270,32 @@ local ARENA_ACTIVITY_REMOTE_EVENTS = {
 	"ArenaScoredSessionStarted",
 	"ArenaActivityEnded",
 }
+
+local COMPETITIVE_REWARD_RESULT_REMOTE = "CompetitiveRewardResult"
+local ONE_V_ONE_QUICKMATCH_REMOTE = "OneVOneQuickmatchRequested"
+local ONE_V_ONE_CUSTOM_CREATE_REMOTE = "OneVOneCustomCreateRequested"
+local ONE_V_ONE_CUSTOM_JOIN_REMOTE = "OneVOneCustomJoinRequested"
+local LESSON_MODE_REMOTE = "LessonModeRequested"
+local LESSON_ACCESS_DENIED_REMOTE = "LessonAccessDenied"
+local LESSON_SLIDE_OPENED_REMOTE = "LessonSlideOpened"
+local LESSON_MILESTONE_SUBMITTED_REMOTE = "LessonMilestoneSubmitted"
+local LESSON_MILESTONE_RESULT_REMOTE = "LessonMilestoneResult"
+local COMPETITIVE_REWARD_REMOTE_EVENTS = {
+	COMPETITIVE_REWARD_RESULT_REMOTE,
+	ONE_V_ONE_QUICKMATCH_REMOTE,
+	ONE_V_ONE_CUSTOM_CREATE_REMOTE,
+	ONE_V_ONE_CUSTOM_JOIN_REMOTE,
+	LESSON_MODE_REMOTE,
+	LESSON_ACCESS_DENIED_REMOTE,
+	LESSON_SLIDE_OPENED_REMOTE,
+	LESSON_MILESTONE_SUBMITTED_REMOTE,
+	LESSON_MILESTONE_RESULT_REMOTE,
+}
 local arenaJoinRemoteConnected = false
 local arenaAnswerRemoteConnected = false
 local arenaExitRemoteConnected = false
 local towerLevelPlayRemoteConnected = false
+local lessonModeRemoteConnected = false
 
 local DUNGEON_DAILY_STATE_REMOTE = "DungeonDailyStateChanged"
 local DUNGEON_CORRECT_ANSWER_REVEALED_REMOTE = "DungeonCorrectAnswerRevealed"
@@ -226,6 +321,9 @@ local handleArenaAnswerSelected
 local handleArenaExitRequested
 local clearPlayerArenaPresence
 local awardExperience
+local ensureCompetitiveRewardRemotes
+local handleLessonModeRequested
+local routeLessonMode
 local notifyTowerAccessDenied
 local notifyUpLevelTestReady
 local handleTowerLevelPlayRequested
@@ -241,6 +339,11 @@ local LobbyPortalRoutes = {
 		kind = "GameMode",
 		mode = "1v1",
 		placeId = PLACE_IDS.OneVOne,
+	},
+	LessonMode = {
+		kind = "LessonMode",
+		mode = "LessonMode",
+		placeId = PLACE_IDS.LessonMode,
 	},
 	Group = {
 		kind = "PlaygroundGroup",
@@ -465,6 +568,99 @@ end
 
 
 -- ============================================================
+-- [ STUDIO GUI OWNERSHIP WORKFLOW ]
+-- Durable rule for future UI controllers: the owner builds polished visual GUI
+-- objects in StarterGui, while VS Code client controllers connect behavior to
+-- the copied PlayerGui objects at runtime.
+-- ============================================================
+
+local GUI_OWNERSHIP_WORKFLOW = {
+	appliesTo = {
+		"GUI",
+		"HUD",
+		"Menu",
+		"Button",
+		"Label",
+		"Image",
+		"Bar",
+		"Screen",
+	},
+	visualOwner = "RobloxStudioStarterGui",
+	behaviorOwner = "VSCodeSrcClient",
+	runtimeRoot = "Players.LocalPlayer.PlayerGui",
+	allowTemporaryCodeMadePrototype = true,
+	avoidFinalStudioLocalScriptsUnderGuiButtons = true,
+}
+
+
+-- ============================================================
+-- [ BUILD PROGRESSION UI DISPLAY MODEL ]
+-- Shared display shape for the lobby EXP UI. The client may render this
+-- information, but only the server may award XP or unlock Tower levels.
+-- ============================================================
+
+local PROGRESSION_UI_NAMES = {
+	ScreenGui = "ProgressionUI",
+	TowerLevelLabel = "TowerLevelLabel",
+	XPLabel = "XPLabel",
+	NextLabel = "NextLabel",
+	ProgressBar = "ProgressBar",
+	ProgressFill = "ProgressFill",
+}
+
+local function buildProgressionUIDisplayModel(experience, unlockedTowerLevel)
+	local currentXP = math.max(0, math.floor(tonumber(experience) or 0))
+	local towerLevel = math.clamp(
+		math.floor(tonumber(unlockedTowerLevel) or DEFAULT_UNLOCKED_TOWER_LEVEL),
+		DEFAULT_UNLOCKED_TOWER_LEVEL,
+		#TowerLevelRequirements
+	)
+	local config = TowerLevelRequirements[towerLevel]
+
+	if not config then
+		return {
+			towerLevelText = "Tower Level ?",
+			xpText = ("XP %d"):format(currentXP),
+			nextText = "Progress unavailable",
+			progressRatio = 0,
+			status = "MissingTowerConfig",
+		}
+	end
+
+	if not config.nextLevelRequiredXP or not config.nextLevel then
+		return {
+			towerLevel = towerLevel,
+			currentXP = currentXP,
+			towerLevelText = ("Tower Level %d"):format(towerLevel),
+			xpText = ("XP %d"):format(currentXP),
+			nextText = "Highest Tower Level",
+			progressRatio = 1,
+			status = "MaxTowerLevel",
+		}
+	end
+
+	local requiredXP = config.requiredXP or 0
+	local nextXP = config.nextLevelRequiredXP
+	local xpRange = math.max(1, nextXP - requiredXP)
+	local xpIntoLevel = math.clamp(currentXP - requiredXP, 0, xpRange)
+	local capped = currentXP >= nextXP
+
+	return {
+		towerLevel = towerLevel,
+		currentXP = currentXP,
+		requiredXP = requiredXP,
+		nextTowerLevel = config.nextLevel,
+		nextLevelRequiredXP = nextXP,
+		towerLevelText = ("Tower Level %d"):format(towerLevel),
+		xpText = ("XP %d / %d"):format(math.min(currentXP, nextXP), nextXP),
+		nextText = capped and "Next: Up-Level Test" or ("Next: Tower Level %d test at %d XP"):format(config.nextLevel, nextXP),
+		progressRatio = xpIntoLevel / xpRange,
+		status = capped and "UpLevelTestReady" or "Progressing",
+	}
+end
+
+
+-- ============================================================
 -- [ GET HIGHEST UNLOCKED TOWER LEVEL ]
 -- Returns the highest Tower level unlocked by completed tests.
 -- ============================================================
@@ -608,6 +804,31 @@ end
 
 
 -- ============================================================
+-- [ HANDLE LESSON MODE REQUESTED ]
+-- Receives Lesson Mode requests from the Play menu or a house.
+-- ============================================================
+
+handleLessonModeRequested = function(player, request)
+	if not routeLessonMode then
+		return false, "LessonModeHandlerNotReady"
+	end
+
+	local towerLevel = request
+	local source = LESSON_ACCESS_SOURCES.PlayMenu
+	local lessonId = nil
+	local accessType = nil
+	if type(request) == "table" then
+		towerLevel = request.towerLevel or request.level
+		source = request.source or source
+		lessonId = request.lessonId
+		accessType = request.accessType
+	end
+
+	return routeLessonMode(player, towerLevel, source, lessonId, accessType)
+end
+
+
+-- ============================================================
 -- [ ENSURE ARENA ACTIVITY REMOTES ]
 -- Creates server/client remotes for the level-wide Arena activity.
 -- ============================================================
@@ -616,6 +837,8 @@ local function ensureArenaActivityRemotes()
 	for _, eventName in ipairs(ARENA_ACTIVITY_REMOTE_EVENTS) do
 		getRemoteEvent(eventName, true)
 	end
+
+	ensureCompetitiveRewardRemotes()
 
 	if not arenaJoinRemoteConnected then
 		local joinEvent = getRemoteEvent(ARENA_JOIN_REQUEST_REMOTE, true)
@@ -638,6 +861,26 @@ local function ensureArenaActivityRemotes()
 		if exitEvent then
 			exitEvent.OnServerEvent:Connect(handleArenaExitRequested)
 			arenaExitRemoteConnected = true
+		end
+	end
+end
+
+
+-- ============================================================
+-- [ ENSURE COMPETITIVE REWARD REMOTES ]
+-- Creates remotes for competitive reward feedback and 1v1 matchmaking.
+-- ============================================================
+
+ensureCompetitiveRewardRemotes = function()
+	for _, eventName in ipairs(COMPETITIVE_REWARD_REMOTE_EVENTS) do
+		getRemoteEvent(eventName, true)
+	end
+
+	if not lessonModeRemoteConnected then
+		local lessonEvent = getRemoteEvent(LESSON_MODE_REMOTE, true)
+		if lessonEvent then
+			lessonEvent.OnServerEvent:Connect(handleLessonModeRequested)
+			lessonModeRemoteConnected = true
 		end
 	end
 end
@@ -667,6 +910,7 @@ local function getArenaActivityPayload(player, context, extra)
 		joinDuringQuestionQueues = true,
 		soloPractice = false,
 		minScoredPlayers = ARENA_MIN_SCORED_PLAYERS,
+		minRewardPlayers = COMPETITIVE_REWARD_POLICY.Arena.minRewardPlayers,
 		intermissionSeconds = ARENA_INTERMISSION_SECONDS,
 		questionSeconds = ARENA_QUESTION_SECONDS,
 		leaderboardLimit = ARENA_LEADERBOARD_LIMIT,
@@ -747,6 +991,158 @@ function getArenaMapCount(map)
 		count = count + 1
 	end
 	return count
+end
+
+
+-- ============================================================
+-- [ GET COMPETITIVE REWARD ELIGIBILITY ]
+-- Separates local session score from saved XP/coin rewards.
+-- Private, custom, invite-only, and Lesson Mode contexts never pay competitive rewards.
+-- ============================================================
+
+local function isNoRewardCompetitiveContext(context)
+	context = context or {}
+
+	local matchType = context.matchType or context.rewardContext
+	local privacy = context.privacy
+
+	if context.lessonMode == true or matchType == COMPETITIVE_MATCH_TYPES.LessonMode then
+		return true, "LessonModeUsesSeparateRewards"
+	end
+
+	if matchType == COMPETITIVE_MATCH_TYPES.Custom or matchType == COMPETITIVE_MATCH_TYPES.Private then
+		return true, "CustomOrPrivateNoSavedRewards"
+	end
+
+	if privacy == GROUP_STAGE_PRIVACY.InviteOnly or context.inviteOnly == true then
+		return true, "InviteOnlyNoSavedRewards"
+	end
+
+	if context.isVipServer == true or context.isPrivateServer == true then
+		return true, "PrivateServerNoSavedRewards"
+	end
+
+	if context.isReservedServer == true and context.serverReservedForMatchmaking ~= true then
+		return true, "UntrustedReservedServerNoSavedRewards"
+	end
+
+	return false, nil
+end
+
+
+local function getCompetitiveRewardEligibility(mode, context)
+	context = context or {}
+	local activePlayerCount = math.floor(tonumber(context.activePlayerCount or context.playerCount) or 0)
+
+	local isNoReward, noRewardReason = isNoRewardCompetitiveContext(context)
+	if isNoReward then
+		return false, 0, noRewardReason
+	end
+
+	if context.matchQualityValidated == false then
+		return false, 0, "MatchQualityFailed"
+	end
+
+	if mode == COMPETITIVE_REWARD_MODES.Arena then
+		local policy = COMPETITIVE_REWARD_POLICY.Arena
+		if activePlayerCount < policy.minRewardPlayers then
+			return false, 0, "ArenaNeedsFourPublicPlayers"
+		end
+
+		return true, policy.rewardMultiplier, "ArenaFullReward"
+	end
+
+	if mode == COMPETITIVE_REWARD_MODES.OneVOne or mode == "1v1" then
+		local policy = COMPETITIVE_REWARD_POLICY.OneVOne
+		local isRandomQuickmatch = context.randomQuickmatch == true
+			or context.matchType == COMPETITIVE_MATCH_TYPES.RandomQuickmatch
+
+		if not isRandomQuickmatch then
+			return false, 0, "OneVOneRequiresRandomQuickmatch"
+		end
+
+		if activePlayerCount < policy.minRewardPlayers then
+			return false, 0, "OneVOneNeedsTwoPlayers"
+		end
+
+		local isCrossServerRewardable = context.crossServerMatchmaking == true
+			or context.serverReservedForMatchmaking == true
+		if policy.requiresCrossServerForSavedRewards and not isCrossServerRewardable then
+			return false, 0, "OneVOneRewardsWaitForCrossServerMatchmaking"
+		end
+
+		return true, policy.rewardMultiplier, "OneVOneRandomReward"
+	end
+
+	if mode == COMPETITIVE_REWARD_MODES.Group then
+		local policy = COMPETITIVE_REWARD_POLICY.Group
+		local isPublic = context.publicRoom == true
+			or context.matchType == COMPETITIVE_MATCH_TYPES.Public
+			or privacy == GROUP_STAGE_PRIVACY.Public
+
+		if not isPublic then
+			return false, 0, "GroupRequiresPublicRoom"
+		end
+
+		if activePlayerCount < policy.minRewardPlayers then
+			return false, 0, "GroupNeedsFourPublicPlayers"
+		end
+
+		return true, policy.rewardMultiplier, "GroupTwentyPercentArenaReward"
+	end
+
+	return false, 0, "UnknownCompetitiveMode"
+end
+
+
+local function getCompetitiveExperienceGain(baseXP, rewardMultiplier)
+	if type(rewardMultiplier) ~= "number" then
+		return 0
+	end
+
+	return math.max(0, math.floor((tonumber(baseXP) or 0) * rewardMultiplier))
+end
+
+
+local function fireCompetitiveRewardResult(player, payload)
+	payload = payload or {}
+	firePlayerRemoteEvent(player, COMPETITIVE_REWARD_RESULT_REMOTE, payload)
+end
+
+
+-- ============================================================
+-- [ 1V1 QUICKMATCH FLOW DRAFT ]
+-- Same-server first pass: queue players in the current server and pair them
+-- for local score only. Saved rewards wait for the cross-server version:
+-- MemoryStoreService queue, then TeleportService sends matched players to a
+-- reserved 1v1 match server with server-issued data.
+-- ============================================================
+
+local function requestOneVOneQuickmatch(player, context)
+	context = context or {}
+	context.mode = COMPETITIVE_REWARD_MODES.OneVOne
+	context.matchType = COMPETITIVE_MATCH_TYPES.RandomQuickmatch
+	context.randomQuickmatch = true
+
+	-- Future real implementation:
+	-- 1. Add the player to a server-owned same-server or MemoryStore queue.
+	-- 2. Match only against an opponent the player did not choose.
+	-- 3. Same-server prototype: local score only, no saved XP/coins.
+	-- 4. Cross-server production: reserve a match server, teleport both players,
+	--    and mark context as serverReservedForMatchmaking for rewards.
+	return false, "OneVOneQuickmatchNotImplemented"
+end
+
+
+local function createCustomOneVOneMatch(player, context)
+	context = context or {}
+	context.mode = COMPETITIVE_REWARD_MODES.OneVOne
+	context.matchType = COMPETITIVE_MATCH_TYPES.Custom
+	context.rewardMultiplier = 0
+
+	-- Future real implementation checks Battlepass ownership before creating
+	-- the custom room. Custom 1v1 is social/private and never pays saved rewards.
+	return false, "CustomOneVOneNotImplemented"
 end
 
 
@@ -1545,7 +1941,8 @@ end
 
 -- ============================================================
 -- [ SUBMIT ARENA ANSWER ]
--- Correct answers only score/award XP while at least 2 players are active.
+-- Correct answers can score locally with 2+ active players, but saved rewards
+-- require the competitive reward validator, currently public Arena with 4+.
 -- ============================================================
 
 submitArenaAnswer = function(player, request)
@@ -1597,18 +1994,45 @@ submitArenaAnswer = function(player, request)
 	if wasCorrect then
 		local activePlayerCount = getArenaMapCount(state.activePlayers)
 		local canScore = state.scoredSessionStarted and activePlayerCount >= ARENA_MIN_SCORED_PLAYERS
+		local canAwardSavedRewards = false
+		local rewardReason = "LocalScoreOnly"
+		local rewardMultiplier = 0
 
 		if canScore then
 			state.scores[player.UserId] = (state.scores[player.UserId] or 0) + 1
 			state.scoreNames[player.UserId] = player.Name
 			scoreAwarded = true
 
-			if awardExperience then
-				awardExperience(player, XP_REWARDS.CorrectAnswer)
+			canAwardSavedRewards, rewardMultiplier, rewardReason = getCompetitiveRewardEligibility(
+				COMPETITIVE_REWARD_MODES.Arena,
+				{
+					activePlayerCount = activePlayerCount,
+					matchType = (state.context and state.context.matchType) or COMPETITIVE_MATCH_TYPES.Public,
+					privacy = state.context and state.context.privacy,
+					isVipServer = state.context and state.context.isVipServer,
+					isPrivateServer = state.context and state.context.isPrivateServer,
+					isReservedServer = state.context and state.context.isReservedServer,
+					serverReservedForMatchmaking = state.context and state.context.serverReservedForMatchmaking,
+					matchQualityValidated = true,
+				}
+			)
+
+			local xpGain = getCompetitiveExperienceGain(XP_REWARDS.CorrectAnswer, rewardMultiplier)
+			if canAwardSavedRewards and awardExperience and xpGain > 0 then
+				awardExperience(player, xpGain)
 				xpAwarded = true
 			end
 
 			fireArenaLeaderboard(state, "CorrectAnswer")
+			fireCompetitiveRewardResult(player, {
+				mode = COMPETITIVE_REWARD_MODES.Arena,
+				reason = rewardReason,
+				scoreAwarded = scoreAwarded,
+				xpAwarded = xpAwarded,
+				xpGain = xpAwarded and xpGain or 0,
+				activePlayerCount = activePlayerCount,
+				minRewardPlayers = COMPETITIVE_REWARD_POLICY.Arena.minRewardPlayers,
+			})
 		end
 
 		state.acceptingAnswers = false
@@ -1623,6 +2047,9 @@ submitArenaAnswer = function(player, request)
 			winnerName = player.Name,
 			scoreAwarded = scoreAwarded,
 			xpAwarded = xpAwarded,
+			savedRewardEligible = canAwardSavedRewards,
+			savedRewardReason = rewardReason,
+			minRewardPlayers = COMPETITIVE_REWARD_POLICY.Arena.minRewardPlayers,
 			practiceOnly = not canScore,
 		})
 
@@ -2255,6 +2682,199 @@ end
 
 
 -- ============================================================
+-- [ LESSON MODE ACCESS HELPERS ]
+-- Lesson Mode is personal and level-specific. The server only allows it when
+-- the player owns or rents an active house in that same Tower level.
+-- ============================================================
+
+local function getCommunityHouseReservation(player, towerLevel)
+	local userReservations = communityHouseReservations[player.UserId]
+	if not userReservations then
+		return nil
+	end
+
+	local reservation = userReservations[math.floor(tonumber(towerLevel) or 0)]
+	if reservation and reservation.active ~= false then
+		return reservation
+	end
+
+	return nil
+end
+
+
+local function playerHasActiveHouseInTowerLevel(player, towerLevel)
+	local level = math.floor(tonumber(towerLevel) or 0)
+	if level <= 0 then
+		return false
+	end
+
+	if getCommunityHouseReservation(player, level) then
+		return true
+	end
+
+	return player:GetAttribute("HasActiveHouse_TowerLevel_" .. tostring(level)) == true
+end
+
+
+local function notifyLessonAccessDenied(player, towerLevel, reason)
+	firePlayerRemoteEvent(player, LESSON_ACCESS_DENIED_REMOTE, {
+		towerLevel = towerLevel,
+		reason = reason,
+		requiresHouseInSameTowerLevel = true,
+	})
+end
+
+
+local function isFreeIntroLesson(lessonId, accessType)
+	return accessType == LESSON_ACCESS_TYPES.FreeIntro
+		or tostring(lessonId or "") == FREE_INTRO_LESSON_ID
+end
+
+
+local function getLessonContentPath(towerLevel, topic, accessType)
+	if accessType == LESSON_ACCESS_TYPES.FreeIntro then
+		return LESSON_CONTENT_PATHS.FreeIntro
+	end
+
+	return LESSON_CONTENT_PATHS.HouseLevelPattern:format(
+		math.floor(tonumber(towerLevel) or 0),
+		tostring(topic or "Mixed")
+	)
+end
+
+
+local function canAccessLessonMode(player, towerLevel, lessonId, accessType)
+	if isFreeIntroLesson(lessonId, accessType) then
+		return true, "FreeIntroLessonAllowed", FREE_INTRO_TOWER_LEVEL, 0, getPlayerExperience(player), LESSON_ACCESS_TYPES.FreeIntro
+	end
+
+	local level = tonumber(towerLevel)
+	if not level then
+		return false, "MissingLessonLevel"
+	end
+	level = math.floor(level)
+
+	local allowed, reason, requiredXP, currentXP = canEnterTowerLevel(player, level)
+	if not allowed then
+		return false, reason, level, requiredXP, currentXP
+	end
+
+	if not playerHasActiveHouseInTowerLevel(player, level) then
+		return false, "HouseRequiredForLessonMode", level, requiredXP, currentXP
+	end
+
+	return true, "LessonModeAllowed", level, requiredXP, currentXP, LESSON_ACCESS_TYPES.HouseLevel
+end
+
+
+routeLessonMode = function(player, towerLevel, source, lessonId, accessType)
+	source = source or LESSON_ACCESS_SOURCES.PlayMenu
+	lessonId = lessonId or FREE_INTRO_LESSON_ID
+	accessType = accessType or (lessonId == FREE_INTRO_LESSON_ID and LESSON_ACCESS_TYPES.FreeIntro or LESSON_ACCESS_TYPES.HouseLevel)
+
+	local allowed, reason, level, requiredXP, currentXP, resolvedAccessType = canAccessLessonMode(player, towerLevel, lessonId, accessType)
+	if not allowed then
+		if reason == "NotEnoughXP" then
+			notifyTowerAccessDenied(player, level or towerLevel, requiredXP, currentXP)
+		elseif reason == "UpLevelTestRequired" then
+			notifyUpLevelTestReady(player, level or towerLevel, requiredXP, currentXP)
+		end
+
+		notifyLessonAccessDenied(player, level or towerLevel, reason)
+		return false, reason, level, requiredXP, currentXP
+	end
+
+	local teleportData = {
+		destination = "LessonMode",
+		source = source,
+		towerLevel = level,
+		lessonId = lessonId,
+		accessType = resolvedAccessType,
+		contentPath = getLessonContentPath(level, nil, resolvedAccessType),
+		lessonMode = true,
+		matchType = COMPETITIVE_MATCH_TYPES.LessonMode,
+		lessonRewardsAreOneTime = LESSON_MODE_REWARD_POLICY.oneTimePerMilestone,
+		requiresHouseInSameTowerLevel = resolvedAccessType == LESSON_ACCESS_TYPES.HouseLevel,
+		freeIntro = resolvedAccessType == LESSON_ACCESS_TYPES.FreeIntro,
+		currentXP = currentXP,
+	}
+
+	if PLACE_IDS.LessonMode and PLACE_IDS.LessonMode ~= 0 then
+		return teleportPlayerToPlace(player, PLACE_IDS.LessonMode, teleportData)
+	end
+
+	startGameMode(player, "LessonMode", teleportData)
+	return true, "LessonModeStarted", level
+end
+
+
+-- ============================================================
+-- [ CLAIM LESSON MILESTONE REWARD ]
+-- Grants a lesson milestone reward once per player/content version.
+-- Real reward amounts are a future tuning decision.
+-- ============================================================
+
+local function getLessonMilestoneRewardKey(accessType, towerLevel, lessonId, milestoneId, contentVersion)
+	return table.concat({
+		tostring(accessType or LESSON_ACCESS_TYPES.HouseLevel),
+		tostring(math.floor(tonumber(towerLevel) or 0)),
+		tostring(lessonId or "Lesson"),
+		tostring(milestoneId or "Milestone"),
+		tostring(contentVersion or "v1"),
+	}, ":")
+end
+
+
+local function hasClaimedLessonMilestoneReward(player, accessType, towerLevel, lessonId, milestoneId, contentVersion)
+	local userClaims = lessonMilestoneRewardClaims[player.UserId]
+	if not userClaims then
+		return false
+	end
+
+	return userClaims[getLessonMilestoneRewardKey(accessType, towerLevel, lessonId, milestoneId, contentVersion)] == true
+end
+
+
+local function claimLessonMilestoneReward(player, accessType, towerLevel, lessonId, milestoneId, contentVersion, reward)
+	accessType = accessType or LESSON_ACCESS_TYPES.HouseLevel
+	reward = reward or LESSON_MODE_REWARD_POLICY.defaultReward
+
+	if hasClaimedLessonMilestoneReward(player, accessType, towerLevel, lessonId, milestoneId, contentVersion) then
+		firePlayerRemoteEvent(player, LESSON_MILESTONE_RESULT_REMOTE, {
+			accessType = accessType,
+			towerLevel = towerLevel,
+			lessonId = lessonId,
+			milestoneId = milestoneId,
+			contentVersion = contentVersion,
+			rewardGranted = false,
+			reason = "LessonMilestoneRewardAlreadyClaimed",
+		})
+		return false, "LessonMilestoneRewardAlreadyClaimed"
+	end
+
+	lessonMilestoneRewardClaims[player.UserId] = lessonMilestoneRewardClaims[player.UserId] or {}
+	lessonMilestoneRewardClaims[player.UserId][getLessonMilestoneRewardKey(accessType, towerLevel, lessonId, milestoneId, contentVersion)] = true
+
+	if reward and reward.xp and awardExperience then
+		awardExperience(player, reward.xp)
+	end
+
+	firePlayerRemoteEvent(player, LESSON_MILESTONE_RESULT_REMOTE, {
+		accessType = accessType,
+		towerLevel = towerLevel,
+		lessonId = lessonId,
+		milestoneId = milestoneId,
+		contentVersion = contentVersion,
+		rewardGranted = true,
+		reward = reward,
+		badgeAwarded = reward and reward.badgeId ~= nil,
+		reason = "LessonMilestoneRewardGranted",
+	})
+	return true, "LessonMilestoneRewardGranted"
+end
+
+
+-- ============================================================
 -- [ ENSURE LOBBY TOWER REMOTES ]
 -- Creates the small remotes used by the visible lobby Tower.
 -- ============================================================
@@ -2263,6 +2883,8 @@ local function ensureLobbyTowerRemotes()
 	for _, eventName in ipairs(LOBBY_TOWER_REMOTE_EVENTS) do
 		getRemoteEvent(eventName, true)
 	end
+
+	ensureCompetitiveRewardRemotes()
 
 	if not towerLevelPlayRemoteConnected and handleTowerLevelPlayRequested then
 		local playEvent = getRemoteEvent(TOWER_LEVEL_PLAY_REMOTE, true)
@@ -2338,6 +2960,56 @@ end
 
 
 -- ============================================================
+-- [ GET LESSON LEVEL STATES ]
+-- Builds Play-menu Lesson Mode choices from server-side house ownership/rental.
+-- ============================================================
+
+local function getLessonLevelStates(player)
+	local lessonStates = {}
+
+	table.insert(lessonStates, {
+		towerLevel = FREE_INTRO_TOWER_LEVEL,
+		lessonId = FREE_INTRO_LESSON_ID,
+		accessType = LESSON_ACCESS_TYPES.FreeIntro,
+		status = "FreeIntroLessonAllowed",
+		canOpenLessons = true,
+		hasActiveHouse = false,
+		requiredXP = 0,
+		currentXP = getPlayerExperience(player),
+		lessonRewardsAreOneTime = LESSON_MODE_REWARD_POLICY.oneTimePerMilestone,
+		contentPath = LESSON_CONTENT_PATHS.FreeIntro,
+	})
+
+	for towerLevel in ipairs(TowerLevelRequirements) do
+		local unlocked, reason, requiredXP, currentXP = canEnterTowerLevel(player, towerLevel)
+		local hasHouse = playerHasActiveHouseInTowerLevel(player, towerLevel)
+		local canOpenLessons = unlocked and hasHouse
+
+		local status = "HouseRequiredForLessonMode"
+		if not unlocked then
+			status = reason
+		elseif hasHouse then
+			status = "LessonModeAllowed"
+		end
+
+		table.insert(lessonStates, {
+			towerLevel = towerLevel,
+			accessType = LESSON_ACCESS_TYPES.HouseLevel,
+			status = status,
+			canOpenLessons = canOpenLessons,
+			hasActiveHouse = hasHouse,
+			requiredXP = requiredXP,
+			currentXP = currentXP,
+			lessonRewardsAreOneTime = LESSON_MODE_REWARD_POLICY.oneTimePerMilestone,
+			contentPath = getLessonContentPath(towerLevel, nil, LESSON_ACCESS_TYPES.HouseLevel),
+		})
+	end
+
+	return lessonStates
+end
+
+
+-- ============================================================
 -- [ NOTIFY LOBBY TOWER GATE STATES UPDATED ]
 -- Tells the client which visible Tower gates and Play choices the player can use.
 -- ============================================================
@@ -2349,6 +3021,7 @@ local function notifyLobbyTowerGateStatesUpdated(player)
 		highestUnlockedTowerLevel = getHighestUnlockedTowerLevel(player),
 		currentXP = getPlayerExperience(player),
 		gateStates = getLobbyTowerGateStates(player),
+		lessonLevelStates = getLessonLevelStates(player),
 	})
 end
 
@@ -2385,6 +3058,10 @@ local function routeLobbyPortal(player, portalName)
 
 		startGameMode(player, route.mode)
 		return true, "StartedGameMode"
+	end
+
+	if route.kind == "LessonMode" then
+		return routeLessonMode(player, route.towerLevel, LESSON_ACCESS_SOURCES.PlayMenu, FREE_INTRO_LESSON_ID, LESSON_ACCESS_TYPES.FreeIntro)
 	end
 
 	if route.kind == "PlaygroundGroup" then
@@ -2672,7 +3349,12 @@ local function rentOrBuyCommunityHouse(player, towerLevel, houseId, action)
 		houseId = houseId,
 		action = action,
 		source = TowerLevelAreas.Community,
+		active = true,
 	}
+
+	communityHouseReservations[player.UserId] = communityHouseReservations[player.UserId] or {}
+	communityHouseReservations[player.UserId][towerLevel] = reservation
+	player:SetAttribute("HasActiveHouse_TowerLevel_" .. tostring(towerLevel), true)
 
 	-- Community house economy decisions are tracked in notes.md.
 	return true, "CommunityHouseReserved", reservation
@@ -4104,13 +4786,25 @@ end
 -- [ ANSWER SELECTION / SCORING FALLBACK ]
 -- Used by simple trivia modes. Arena uses submitArenaAnswer so solo
 -- practice and session leaderboard rules can be enforced.
--- First correct answer scores a point and awards XP; wrong answer scores nothing.
+-- First correct answer scores locally. Saved XP needs a reward-eligible context.
 -- ============================================================
 
-local function onAnswerSelected(player, selectedAnswer, correctAnswer, scores)
+local function onAnswerSelected(player, selectedAnswer, correctAnswer, scores, context)
 	if selectedAnswer == correctAnswer then
 		scores[player] = (scores[player] or 0) + 1
-		awardExperience(player, XP_REWARDS.CorrectAnswer)
+		context = context or {}
+		local rewardEligible, rewardMultiplier, rewardReason = getCompetitiveRewardEligibility(context.mode, context)
+		local xpGain = getCompetitiveExperienceGain(XP_REWARDS.CorrectAnswer, rewardMultiplier)
+		if rewardEligible and xpGain > 0 then
+			awardExperience(player, xpGain)
+		end
+		fireCompetitiveRewardResult(player, {
+			mode = context.mode,
+			reason = rewardReason,
+			scoreAwarded = true,
+			xpAwarded = rewardEligible and xpGain > 0,
+			xpGain = rewardEligible and xpGain or 0,
+		})
 		return true  -- correct
 	end
 	return false  -- wrong
